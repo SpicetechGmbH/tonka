@@ -14,8 +14,6 @@ Und so wurde das digitale, topographische Stadtlexikon, im Auftrag der Stadt Stu
 ![beispiel_image](beispiel_image.png)
 
 ---
-## Inhaltsverzeichnis
-[[_TOC_]]
 
 ## Features
 - eine intuitive Kartenansicht sowie historische Karten mit Vergleichsfunktion
