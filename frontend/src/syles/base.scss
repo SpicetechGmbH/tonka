@@ -1,0 +1,102 @@
+/* color palette from <https://github.com/vuejs/theme> */
+:root {
+  --vt-c-white: #ffffff;
+  --vt-c-white-soft: #f8f8f8;
+  --vt-c-white-mute: #f2f2f2;
+  --vt-c-peach-soft: rgb(201 88 68 / 80%) --vt-c-black: #181818;
+  --vt-c-black-soft: #222222;
+  --vt-c-black-mute: #282828;
+
+  --vt-c-indigo: #2c3e50;
+
+  --vt-c-divider-light-1: rgba(60, 60, 60, 0.29);
+  --vt-c-divider-light-2: rgba(60, 60, 60, 0.12);
+  --vt-c-divider-dark-1: rgba(84, 84, 84, 0.65);
+  --vt-c-divider-dark-2: rgba(84, 84, 84, 0.48);
+
+  --vt-c-text-light-1: var(--vt-c-indigo);
+  --vt-c-text-light-2: rgba(60, 60, 60, 0.66);
+  --vt-c-text-dark-1: var(--vt-c-white);
+  --vt-c-text-dark-2: rgba(235, 235, 235, 0.64);
+}
+
+/* semantic color variables for this project */
+:root {
+  --dts-color-bg: rgba(255, 255, 255, 0.4);
+  --dts-color-bg2: rgba(255, 255, 255, 0.8);
+  --dts-color-fulltrans-bg: rgba(255, 255, 255, 0);
+  --dts-color-font: rgba(0, 0, 0, 1);
+  --dts-color-font-lvl1: rgba(80, 80, 80, 1);
+  --dts-color-font-lvl2: rgba(160, 160, 160, 1);
+  --dts-color-accent: rgba(232, 199, 82, 0.8);
+  --dts-color-foxbrush: rgba(201, 88, 68, 0.8);
+  --dts-color-newwarm: rgba(182, 125, 83, 1);
+  --dts-color-link: rgba(67, 29, 22, 0.8);
+  --dts-color-closer: rgba(0, 0, 0, 0.4);
+  --dts-color-anticipation: rgba(237, 230, 179, 1);
+  --dts-color-anticipation: rgba(153, 212, 32, 1);
+  --dts-color-anticipation: rgba(237, 230, 179, 1);
+  --dts-color-anticipation: rgba(207, 211, 217, 1);
+  --dts-color-anticipation: rgba(255, 255, 255, 1);
+  --dts-color-brown: rgba(129, 80, 28, 0.8);
+  --dts-color-dustysky: rgba(232, 155, 0, 0.8);
+  --dts-color-dustysky: rgba(201, 88, 68, 0.8);
+  --dts-color-dustysky: rgba(55, 60, 72, 0.8);
+  --dts-color-dustysky: rgba(29, 62, 42, 0.8);
+  --dts-color-dustygrs: rgba(160, 180, 0, 0.8);
+  --dts-border-radius: 0px;
+  --dts-color-font-hover: rgba(0, 0, 0, 0.5);
+}
+
+@font-face {
+  font-family: 'Istok Web';
+  src: url('../assets/fonts/IstokWeb-Regular.woff2') format('woff2');
+  src: url('../assets/fonts/IstokWeb-Regular.woff') format('woff');
+
+}
+
+@font-face {
+  font-family: 'Lusitana';
+  src: url('../assets/fonts/Lusitana.woff2') format('woff2');
+  src: url('../assets/fonts/Lusitana.woff') format('woff');
+}
+
+.font-istok-web {
+  font-family: "Istok Web", serif;
+}
+
+.font-istok-web-bold {
+  font-family: "Istok Web", serif;
+  font-weight: bold;
+}
+
+.font-lusitana {
+  font-family: "Lusitana", serif;
+  font-weight: bold;
+}
+
+.dts-icon-text-xs {
+  font-family: "Times New Roman", Times, serif;
+  font-size: 6pt;
+}
+
+.zero-font-size {
+  font-size: 0pt;
+}
+
+.six-font-size {
+  font-size: 6pt;
+}
+
+.eight-font-size {
+  font-size: 8pt;
+}
+
+.ol-control button {
+  color: whitesmoke;
+  background-color: var(--dts-color-foxbrush);
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}

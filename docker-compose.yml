@@ -1,0 +1,29 @@
+version: '3.7'
+services:
+
+  dts-os-backend:
+    build:
+      context: . # Include the entire project directory
+      dockerfile: ./backend/Dockerfile # Specify the backend Dockerfile
+    container_name: dts-os-backend
+    ports:
+      - 127.0.0.1:8989:8080
+    environment:
+      POSTGRES_URL: jdbc:postgresql://dts-os-db:5432/postgres
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+    depends_on:
+      - dts-os-db
+
+  dts-os-db:
+    image: postgres:17.0
+    restart: unless-stopped
+    container_name: dts-os-db
+    ports:
+      - 127.0.0.1:5431:5432
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: pass
+      POSTGRES_DB: postgres
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql

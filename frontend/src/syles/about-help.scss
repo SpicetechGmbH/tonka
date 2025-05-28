@@ -1,0 +1,31 @@
+.impressum {
+    padding: 20px;
+}
+
+.dts-impressum {
+    padding-top: 20px;
+    font-size: 10px;
+    color: #a3a3a3;
+}
+.about-help {
+    margin: 10px;
+  
+    &__title {
+      text-decoration: none;
+      color: white;
+      font-weight: bold;
+      font-size: 1.5rem;
+    }
+  
+    &__title-left {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+  
+    &__title-right {
+      font-size: medium;
+      font-weight: bold;
+      color: #e0e0e0;
+      text-decoration: none;
+    }
+  }

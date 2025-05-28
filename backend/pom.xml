@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>3.1.5</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>de.spicetech</groupId>
+	<artifactId>dts</artifactId>
+	<version>2.0.0-a.5</version>
+	<name>Digitales topographisches Stadtlexikon</name>
+	<description>Spring Boot DtS</description>
+
+	<properties>
+		<java.version>21</java.version>
+		<sentry.version>6.28.0</sentry.version>
+	</properties>
+	
+	<dependencies>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-jooq</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-web</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>io.sentry</groupId>
+			<artifactId>sentry-spring-boot-starter-jakarta</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.liquibase</groupId>
+			<artifactId>liquibase-core</artifactId>
+		</dependency>
+		<!-- https://mvnrepository.com/artifact/org.liquibase/liquibase-maven-plugin -->
+		<dependency>
+			<groupId>org.liquibase</groupId>
+			<artifactId>liquibase-maven-plugin</artifactId>
+			<version>4.20.0</version>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-devtools</artifactId>
+			<scope>runtime</scope>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.postgresql</groupId>
+			<artifactId>postgresql</artifactId>
+			<scope>runtime</scope>
+		</dependency>
+		<dependency>
+			<groupId>org.projectlombok</groupId>
+			<artifactId>lombok</artifactId>
+			<optional>true</optional>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>io.sentry</groupId>
+				<artifactId>sentry-bom</artifactId>
+				<version>${sentry.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.springframework.boot</groupId>
+				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<mainClass>de.spicetech.dts.DtsApplication</mainClass>
+					<jvmArguments> -Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=8000</jvmArguments>
+					<excludes>
+						<exclude>
+							<groupId>org.projectlombok</groupId>
+							<artifactId>lombok</artifactId>
+						</exclude>
+					</excludes>
+				</configuration>
+			</plugin>
+
+			<plugin>
+				<groupId>org.liquibase</groupId>
+				<artifactId>liquibase-maven-plugin</artifactId>
+				<configuration>
+					<changeLogFile>src/main/resources/db/changelog/changelog.sql</changeLogFile>
+					<url>${POSTGRES_URL}</url>
+					<username>${POSTGRES_USER}</username>
+					<password>${POSTGRES_PASSWORD}</password>
+				</configuration>
+			</plugin>
+
+      <!-- The jOOQ code generator plugin -->
+			<plugin>
+				<groupId>org.jooq</groupId>
+				<artifactId>jooq-codegen-maven</artifactId>
+				<executions>
+					<execution>
+						<id>jooq-codegen</id>
+						<phase>generate-sources</phase>
+						<goals>
+							<goal>generate</goal>
+						</goals>
+					</execution>
+				</executions>
+				<configuration>
+					<jdbc>
+						<driver>org.postgresql.Driver</driver>
+						<url>${POSTGRES_URL}</url>
+						<user>${POSTGRES_USER}</user>
+						<password>${POSTGRES_PASSWORD}</password>
+					</jdbc>
+					<generator>
+					  <database>
+							<name>org.jooq.meta.postgres.PostgresDatabase</name>
+							<inputSchema>public</inputSchema>
+							<includes>.*</includes>
+							<excludes></excludes>
+						</database>
+						<target>
+							<packageName>de.spicetech.dts.jooq</packageName>
+							<directory>target/generated-sources/jooq</directory>
+						</target>
+						<generate>
+						</generate>
+					</generator>
+				</configuration>
+				<dependencies>
+					<dependency>
+						<groupId>org.postgresql</groupId>
+						<artifactId>postgresql</artifactId>
+						<version>42.2.23</version>
+					</dependency>
+				</dependencies>
+			</plugin>
+
+		</plugins>
+	</build>
+
+</project>

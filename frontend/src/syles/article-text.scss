@@ -1,0 +1,31 @@
+@mixin text_style {
+    padding: 10px;
+}
+.textArea {
+    overflow: auto;
+    max-height: 100%;
+
+    & .abstract {
+        @include text_style();
+        text-align: justify;
+        font-weight: bold;
+    }
+
+    & .description {
+        @include text_style();
+        text-align: justify;
+    }
+}
+
+.greyText {
+    @include text_style();
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-style: italic;
+    color: rgb(160 160 160);
+
+    & .buttonAction {
+        color: black;
+    }
+}
