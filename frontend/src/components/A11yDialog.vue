@@ -23,7 +23,7 @@
         <ThemeSwitchButton
           variant="outlined"
           prepend-icon="fa fa-low-vision"
-          color="foxbrush"
+          color="primary"
         >Farbschema wechseln</ThemeSwitchButton>
       </v-card-actions>
     </v-card>
@@ -37,7 +37,7 @@ import ThemeSwitchButton from './ThemeSwitchButton.vue';
   position: fixed;
   left: 16px;
   cursor: pointer;
-  color: rgba(var(--v-theme-foxbrush), 0.8);
+  color: rgba(var(--v-theme-primary), 0.8);
 }
 
 .v-btn--icon.v-btn--size-default {

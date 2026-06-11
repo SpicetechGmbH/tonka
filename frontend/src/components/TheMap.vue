@@ -1,108 +1,177 @@
 <script setup>
-import { useRoute } from 'vue-router';
-import { Map, View } from 'ol';
-import 'ol/ol.css';
+import { syncCssVars, useColors } from '@/composables/useColors.js';
+import { useSnackbar } from '@/composables/useSnackbar.js';
+import { Map as OlMap, View } from 'ol';
 import Feature from 'ol/Feature.js';
+import Overlay from 'ol/Overlay.js';
 import Attribution from 'ol/control/Attribution';
+import { boundingExtent, getWidth } from 'ol/extent.js';
 import WMTSCapabilities from 'ol/format/WMTSCapabilities.js';
-import TileGrid from 'ol/tilegrid/TileGrid';
 import Point from 'ol/geom/Point.js';
-import VectorLayer from 'ol/layer/Vector';
-import TileLayer from 'ol/layer/Tile';
 import ImageLayer from 'ol/layer/Image';
-import ImageWMS from 'ol/source/ImageWMS';
-import TileWMS from 'ol/source/TileWMS';
-import XYZ from 'ol/source/XYZ';
-import ImageArcGISRest from 'ol/source/ImageArcGISRest';
-import { addProjection, toLonLat, fromLonLat, transform } from 'ol/proj';
-import OSM, { ATTRIBUTION } from 'ol/source/OSM.js';
+import TileLayer from 'ol/layer/Tile';
+import VectorLayer from 'ol/layer/Vector';
+import 'ol/ol.css';
+import proj4 from 'proj4';
+import { register } from 'ol/proj/proj4';
+import { addProjection, transform } from 'ol/proj';
 import Projection from 'ol/proj/Projection.js';
 import Cluster from 'ol/source/Cluster.js';
+import ImageArcGISRest from 'ol/source/ImageArcGISRest';
+import ImageWMS from 'ol/source/ImageWMS';
 import VectorSource from 'ol/source/Vector.js';
 import WMTS, { optionsFromCapabilities } from 'ol/source/WMTS.js';
-import { Circle, Fill, Stroke, Style, Text } from 'ol/style.js';
-import Overlay from 'ol/Overlay.js';
+import XYZ from 'ol/source/XYZ';
+import TileGrid from 'ol/tilegrid/TileGrid';
+import { onMounted, reactive, ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
+import { useDisplay, useTheme } from 'vuetify';
 import services from '../../src/services';
-import { ref, reactive, onMounted, watch } from 'vue';
-import { boundingExtent } from 'ol/extent.js';
+import { useA11y } from '../composables/a11y';
+import axios from '../services/axios';
 import { getIconByLemmaType } from '../services/getLemmaIconByType';
 import { useLemmaStore } from '../store/lemmaStore';
 import useMapStore from '../store/mapStore';
+import { useSearchQueryStore } from '../store/searchQueryStore';
 import { useViewControllerStore } from '../store/viewControllerStore';
-import axios from '../services/axios';
-import { useTheme } from 'vuetify';
-import { useA11y } from '../composables/a11y';
-import proj4 from 'proj4';
-import { register } from 'ol/proj/proj4';
-
-register(proj4);
-proj4.defs('EPSG:25832', '+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs');
+import { clearStyleCache, createMarkerStyle, createPointStyle } from '../utils/styleFactory.js';
+import A11yStatementButton from './A11yStatementButton.vue';
+import HelpButton from './HelpButton.vue';
+import PlainLanguageButton from './PlainLanguageButton.vue';
+import SignLanguageButton from './SignLanguageButton.vue';
 
 const { switchTheme } = useA11y();
+const { showSnackbar } = useSnackbar();
+const display = useDisplay();
+
+const { defaultPointCircleFillColor, defaultPointCircleStrokeColor, defaultPointTextColor, defaultPointTextStrokeColor, resultPointCircleFillColor, resultPointCircleStrokeColor, resultPointTextColor, resultPointTextStrokeColor, netPointCircleFillColor, netPointCircleStrokeColor, netPointTextColor, netPointTextStrokeColor } = useColors();
+
+const a11yStatementButtonActive = import.meta.env.VITE_A11Y_STATEMENT;
+const plainLanguageButtonActive = import.meta.env.VITE_PLAIN_LANGUAGE;
+const signLanguageButtonActive = import.meta.env.VITE_SIGN_LANGUAGE;
 
 const route = useRoute();
 const theme = useTheme();
 
+const searchQueryStore = useSearchQueryStore();
 const lemmaStore = useLemmaStore();
 const mapStore = useMapStore();
 const viewControllerStore = useViewControllerStore();
 
-const featureModel = ref([]);
+const features = ref([]);
+const featureById = ref(new Map());
+const activePopovers = ref([]);
+const storedExtent = ref(null);
 const map = reactive({});
 const parser = new WMTSCapabilities();
 const featureLayer = ref(null);
-const featuredFeatureLayer = ref(null);
+const resultFeatureLayer = ref(null);
+const topResultFeatureLayer = ref(null);
 const netFeatureLayer = ref(null);
+
+const streetCenterMarker = ref(null);
+const streetCenterLayer = ref(null);
+const locationMarker = ref(null);
+const locationLayer = ref(null);
 
 const utmProjection = new Projection({
   code: "EPSG:25832",
   units: "m"
 });
 
-onMounted(() => {
-  utmProjectionOnMap();
-  // initGrayBackgroundOnMap();
-  // initializeBaseMap();
+proj4.defs('EPSG:25832', '+proj=utm +zone=32 +ellps=GRS80 +units=m +no_defs');
+register(proj4);
+
+onMounted(async () => {
+  syncCssVars(theme);
+
+  initMap();
+  enableWMSHover();
+  initBackgroundMap();
+  initializeBaseMap();
   openPopupOnMapClick();
   initFeatureLayer();
-  initFeaturedFeatureLayer();
-  initFeatures();
+  initResultFeatureLayer();
+  initTopResultFeatureLayer();
+  initFeatures().then(() => {
+    if (route.query.id || route.params.lemmaLink) {
+      closeAllPopups();
+      showArticleFeature();
+      focusMapOnQueryResults();
+    }
+  });
 
-  if (route.query.id || route.params.lemmaLink) {
-    showArticleFeature();
+  logViewOnMapMoveEnd();
+});
+
+watch(() => theme.global.name.value, () => {
+  // re-read CSS variables, clear cached styles and request OL redraw
+  syncCssVars(theme);
+  clearStyleCache();
+  featureLayer.value?.changed();
+  resultFeatureLayer.value?.changed();
+  topResultFeatureLayer.value?.changed();
+  netFeatureLayer.value?.changed();
+});
+
+watch(() => searchQueryStore.queryResult.artikel, (newQueryResultArtikel, oldQueryResultArtikel) => {
+  if (newQueryResultArtikel && newQueryResultArtikel.length > 0) {
+    // featureLayer.value.setVisible(true);
+    // resultFeatureLayer.value.setVisible(false);
+    // initFeatures();
+    resetActivePopovers();
+    showQueryFeatures().then(() => {
+      focusMapOnQueryResults();
+    });
   }
-
-  // logExtentOnMapMoveEnd();
+}, {
+  immediate: true,
+  deep: true
 });
 
 watch(() => lemmaStore.lemma, (newLemma, oldLemma) => {
-  if (newLemma) {
+  if (newLemma && lemmaStore.ort == null) {
     featureLayer.value.setVisible(true);
     if (netFeatureLayer.value) {
       netFeatureLayer.value.setVisible(false);
     }
     showArticleFeature();
+  } else if (lemmaStore.ort != null) {
+    showArticleFeature(lemmaStore.ort);
   }
 });
 
 watch(() => viewControllerStore.currentView, (currentView, lastView) => {
   if (currentView === 'map') {
-    featureLayer.value.setVisible(true);
-    if (netFeatureLayer.value) {
+    if (mapStore.showPoints) {
+      featureLayer.value.setVisible(true);
+    }
+    if (searchQueryStore.query === '') {
+      resultFeatureLayer.value.setVisible(true);
+      topResultFeatureLayer.value.setVisible(true);
+    }
+    if (netFeatureLayer.value && netFeatureLayer.value.getVisible()) {
       netFeatureLayer.value.setVisible(false);
       closeAllPopups();
     }
   } else if (currentView === 'article') {
-    featureLayer.value.setVisible(true);
     if (netFeatureLayer.value) {
       netFeatureLayer.value.setVisible(false);
     }
-    showArticleFeature();
-  } else {
-    featureLayer.value.setVisible(true);
-    if (netFeatureLayer.value) {
+    if (mapStore.showPoints) {
+      featureLayer.value.setVisible(true);
+      showArticleFeature();
+    }
+  } else if (currentView === 'result') {
+    // showQueryFeatures();
+    if (netFeatureLayer.value?.getVisible()) {
       netFeatureLayer.value.setVisible(false);
       closeAllPopups();
+    }
+    if (mapStore.showPoints) {
+      featureLayer.value.setVisible(true);
+      resultFeatureLayer.value.setVisible(true);
+      topResultFeatureLayer.value.setVisible(true);
     }
   }
 });
@@ -120,13 +189,13 @@ watch(() => mapStore.transparency, (newTransparency) => {
     return;
   }
   const id = mapStore.selectedMap["id"];
-  mapStore.mapLayers.find((layer) => layer.get("id") === id).setOpacity(1 - newTransparency / 100);
+  map.value.getLayers().getArray().find((layer) => layer.get("id") === id).setOpacity(1 - newTransparency / 100);
 });
 
 watch(() => mapStore.selectedMap, (newSelectedMap, oldSelectedMap) => {
   // hide old map (it can be null if no map was selected yet or if the map was deselected)
   if (oldSelectedMap != null) {
-    let oldMapLayer = mapStore.mapLayers.find((layer) => layer.get("id") === oldSelectedMap["id"]);
+    let oldMapLayer = map.value.getLayers().getArray().find((layer) => layer.get("id") === oldSelectedMap["id"]);
     if (oldMapLayer) {
       oldMapLayer.setVisible(false);
     }
@@ -136,13 +205,41 @@ watch(() => mapStore.selectedMap, (newSelectedMap, oldSelectedMap) => {
     return;
   }
 
-  initMap(newSelectedMap);
+  initMapLayer(newSelectedMap).then((mapLayer) => {
+    if (mapLayer) {
+      // set map layer to visible
+      mapStore.transparency = 50;
+      mapLayer.setOpacity(0.5);
+      mapLayer.setZIndex(200);
+      mapLayer.setVisible(true);
+      // map.value.getView().fit(mapLayer.getExtent(), { duration: 1000, padding: [250, 250, 250, 250] });
+    }
+  });
+
+  // Check if selected map is in current view extent, if not, center map to selected map
+  const view = map.value.getView();
+  const extent = view.calculateExtent();
+
+  if (
+    (newSelectedMap.x_max != null && newSelectedMap.y_max != null && newSelectedMap.x_min != null && newSelectedMap.y_min != null) &&
+    (newSelectedMap.x_max != 0 && newSelectedMap.y_max != 0 && newSelectedMap.x_min != 0 && newSelectedMap.y_min != 0) &&
+    (newSelectedMap.x_max < extent[0] || newSelectedMap.y_max < extent[1] || newSelectedMap.x_min > extent[2] || newSelectedMap.y_min > extent[3])
+  ) {
+    const mapToFit = newSelectedMap;
+    const callbackButtonText = display.smAndDown.value ? 'Zur Karte' : 'Zur ausgewählten Karte springen?';
+    showSnackbar({
+      message: 'Karte außerhalb des Sichtbereichs.',
+      timeout: "-1",
+      callback: () => fitViewToArea(mapToFit),
+      callbackButton: callbackButtonText
+    });
+  }
 });
 
 watch(() => mapStore.selectedCompareMap, (newSelectedCompareMap, oldSelectedCompareMap) => {
   // hide old map (it can be null if no map was selected yet or if the map was deselected)
   if (oldSelectedCompareMap != null) {
-    let oldMapLayer = mapStore.mapLayers.find((layer) => layer.get("id") === oldSelectedCompareMap["id"]);
+    let oldMapLayer = map.value.getLayers().getArray().find((layer) => layer.get("id") === oldSelectedCompareMap["id"]);
     if (oldMapLayer) {
       oldMapLayer.setVisible(false);
     }
@@ -152,36 +249,241 @@ watch(() => mapStore.selectedCompareMap, (newSelectedCompareMap, oldSelectedComp
     return;
   }
 
-  initMap(newSelectedCompareMap);
+  initMapLayer(newSelectedCompareMap).then((mapLayer) => {
+    if (mapLayer) {
+      // set map layer to visible
+      mapLayer.setOpacity(1);
+      mapLayer.setZIndex(100);
+      mapLayer.setVisible(true);
+      // map.value.getView().fit(mapLayer.getExtent(), { duration: 1000, padding: [250, 250, 250, 250] });
+    }
+  });
 });
 
-const webMercatorProjection = new Projection({
-  code: "EPSG:3857",
-  units: "m"
+watch(() => mapStore.shownStreet, (newShownStreet) => {
+  if (!newShownStreet) {
+    streetCenterLayer.value && streetCenterLayer.value.setVisible(false);
+    return;
+  }
+
+  // Check if necessary layer is available
+  if (!streetCenterLayer.value) initStreetCenterLayer();
+  // Add layer to map if not already added
+  if (!map.value.getLayers().getArray().includes(streetCenterLayer.value)) {
+    map.value.addLayer(streetCenterLayer.value);
+  }
+
+  // Check if necessary marker is available
+  if (!streetCenterMarker.value) initStreetCenterMarker();
+  // Add marker to layer if not already added
+  if (!streetCenterLayer.value.getSource().getFeatures().includes(streetCenterMarker.value)) {
+    streetCenterLayer.value.getSource().addFeature(streetCenterMarker.value);
+  }
+  // Update marker position
+  streetCenterMarker.value.getGeometry().setCoordinates([newShownStreet.cx, newShownStreet.cy]);
+  streetCenterLayer.value && streetCenterLayer.value.setVisible(true);
+
+  fitViewToArea({
+    x_min: newShownStreet.cx - 150,
+    y_min: newShownStreet.cy - 150,
+    x_max: newShownStreet.cx + 150,
+    y_max: newShownStreet.cy + 150,
+  });
 });
 
-function utmProjectionOnMap() {
-  // Stuttgart coordinates: 48.7758° N, 9.1829° E
-  const stuttgartLonLat = [9.1829, 48.7758];
-  const stuttgartWebMercator = fromLonLat(stuttgartLonLat, webMercatorProjection); // Converts to EPSG:3857
+watch(() => featureLayer?.value?.getVisible(), (newVisible) => {
+  if (newVisible) {
+    showActivePopovers();
+    if (storedExtent.value) {
+      map.value.getView().fit(storedExtent.value, { duration: 1000 });
+    }
+    // focusMapOnActivePopovers();
+  }
+});
 
-  map.value = new Map({
+watch(() => activePopovers.value, () => {
+  console.debug("activePopovers changed:", activePopovers.value);
+}, {
+  deep: true
+});
+
+const focusMapOnQueryResults = () => {
+  let allCoordinates = [];
+
+  let resultFeatureVectorSource = resultFeatureLayer.value.getSource().getSource();
+  let topResultFeatureVectorSource = topResultFeatureLayer.value.getSource();
+
+  resultFeatureVectorSource.getFeatures().forEach((feature) => {
+    allCoordinates.push(feature.getGeometry().getCoordinates());
+  });
+
+  topResultFeatureVectorSource.getFeatures().forEach((feature) => {
+    allCoordinates.push(feature.getGeometry().getCoordinates());
+  });
+
+  if (allCoordinates.length > 0) {
+    const extent = boundingExtent(allCoordinates);
+    fitViewToArea({
+      x_min: extent[0],
+      y_min: extent[1],
+      x_max: extent[2],
+      y_max: extent[3],
+    });
+  }
+};
+
+/**
+   * Moves the view of the map to the given area.
+   * @param {{xmin: number, ymin: number, xmax: number, ymax: number}} area An object with the fields xmin, ymin, xmax and ymax.
+   * @param {number[]} padding An array with the padding values for top, right, bottom and left.
+   */
+const fitViewToArea = async (area, padding = [280, 100, 120, 100]) => {
+  const view = map.value.getView();
+  const desktopExtent = [area.x_min, area.y_min, area.x_max + (area.x_max - area.x_min), area.y_max];
+  const mobileExtent = [area.x_min, area.y_min, area.x_max, area.y_max];
+  const fitOptions = { duration: 1000, padding };
+  // Move map to the left screen area.
+  if (display.mdAndUp.value) {
+    view.fit(desktopExtent, fitOptions);
+    // fitViewToLeftScreenHalf(area);
+  } else {
+    view.fit(mobileExtent, fitOptions);
+  }
+};
+
+/**
+ * This function moves the content in the 'area' to the left half of the screen.
+ * This is usually used for the large and medium sized screens when there is a menu opened on the right.
+ *
+ * @param {object} area an object with the fields xmin, ymin, xmax and ymax
+ */
+const fitViewToLeftScreenHalf = (area) => {
+  const view = map.value.getView();
+  var mapExtent = view.calculateExtent();
+  var extentWidth = getWidth(mapExtent);
+  view.fit([
+    area.x_min + extentWidth / 4,
+    area.y_min,
+    area.x_max + extentWidth / 4,
+    area.y_max,
+  ], { duration: 1000 });
+};
+
+function initStreetCenterLayer() {
+  streetCenterLayer.value = new VectorLayer({
+    name: 'streetCenterLayer',
+    source: new VectorSource({
+      features: []
+    }),
+    zIndex: 12000,
+  });
+}
+
+function initStreetCenterMarker() {
+  streetCenterMarker.value = new Feature({
+    name: 'streetCenterMarker',
+    type: 'geoMarker',
+    geometry: new Point([0, 0])
+  });
+
+  streetCenterMarker.value.setStyle(createMarkerStyle({}));
+}
+
+function initLocationLayer() {
+  locationMarker.value = new Feature({
+    name: 'locationMarker',
+    type: 'userLocation',
+    geometry: new Point([0, 0])
+  });
+  locationMarker.value.setStyle(createMarkerStyle({ color: '#229922' }));
+
+  locationLayer.value = new VectorLayer({
+    name: 'locationLayer',
+    source: new VectorSource({ features: [locationMarker.value] }),
+    zIndex: 13000,
+    visible: false
+  });
+}
+
+function setUserLocationOnMap(utmCoordinate) {
+  if (!locationLayer.value) {
+    initLocationLayer();
+  }
+
+  if (!map.value.getLayers().getArray().includes(locationLayer.value)) {
+    map.value.addLayer(locationLayer.value);
+  }
+
+  locationMarker.value.getGeometry().setCoordinates(utmCoordinate);
+  locationLayer.value.setVisible(true);
+  map.value.getView().animate({ center: utmCoordinate, duration: 800, zoom: Math.max(map.value.getView().getZoom(), 14) });
+}
+
+function getUserLocationCoordinate(position) {
+  return transform([position.coords.longitude, position.coords.latitude], 'EPSG:4326', 'EPSG:25832');
+}
+
+function formatGeoError(error) {
+  switch (error.code) {
+    case error.PERMISSION_DENIED:
+      return 'Standortfreigabe verweigert.';
+    case error.POSITION_UNAVAILABLE:
+      return 'Standort nicht verfügbar.';
+    case error.TIMEOUT:
+      return 'Standortanfrage zeitlich abgelaufen.';
+    default:
+      return 'Standort konnte nicht ermittelt werden.';
+  }
+}
+
+function locateUser() {
+  if (!navigator.geolocation) {
+    showSnackbar({ message: 'Geolocation wird von diesem Browser nicht unterstützt.' });
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      try {
+        const utmCoordinate = getUserLocationCoordinate(position);
+        setUserLocationOnMap(utmCoordinate);
+        showSnackbar({ message: 'Standort auf der Karte angezeigt.', timeout: 3000 });
+      } catch (error) {
+        console.error('Fehler bei der Standortumwandlung', error);
+        showSnackbar({ message: 'Standort konnte nicht auf der Karte angezeigt werden.' });
+      }
+    },
+    (error) => {
+      showSnackbar({ message: formatGeoError(error) });
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+}
+
+function initMap() {
+  addProjection(utmProjection);
+
+  map.value = new OlMap({
     target: 'map',
-    layers: [
-      new TileLayer({
-        source: new OSM()
-      })
-    ],
+    layers: [],
     view: new View({
-      projection: webMercatorProjection,
-      center: stuttgartWebMercator,
-      zoom: 13, // 12-14 is good for a city
+      projection: utmProjection,
+      center: [Number(import.meta.env.VITE_START_CENTER_UTM_E), Number(import.meta.env.VITE_START_CENTER_UTM_N)],
+      // limits free movement of view to area
+      // extent: [663806.7806250211, 5632124.8500854345, 702834.9050611877, 5654644.526484233], 
+      zoom: Number(import.meta.env.VITE_START_ZOOM) || 13.5,
+      minZoom: Number(import.meta.env.VITE_MIN_ZOOM) || 12,
+      maxZoom: Number(import.meta.env.VITE_MAX_ZOOM) || 20,
+      // resolutions: [
+      //   111.99999999999999, 55.99999999999999, 27.999999999999996,
+      //   13.999999999999998, 6.999999999999999, 2.8, 1.4, 0.7, 0.28
+      // ],
+      pixelRatio: 1,
       loadTilesWhileAnimating: true,
       loadTilesWhileInteracting: true,
     })
   });
   map.value.updateSize();
-  window.map = map.value;
 
   function toggleCursorStyle(event) {
     const pixel = event.pixel;
@@ -197,36 +499,167 @@ function utmProjectionOnMap() {
   map.value.on('pointermove', toggleCursorStyle);
 };
 
-function initGrayBackgroundOnMap() {
-  const osmLayer = new TileLayer({
-    source: new OSM()
-  });
-  map.value.addLayer(osmLayer);
-};
+/**
+ * Enable hover (GetFeatureInfo) for WMS Image layers.
+ * This will request the WMS GetFeatureInfo for the top-most visible ImageWMS layer
+ * and show a small overlay tooltip. The WMS server must support GetFeatureInfo and CORS.
+ */
+function enableWMSHover() {
+  const infoElement = document.createElement('div');
+  infoElement.className = 'ol-wms-info';
+  infoElement.style.pointerEvents = 'none';
 
-function initializeBaseMap() {
+  const infoOverlay = new Overlay({ element: infoElement, offset: [12, 0], positioning: 'center-left' });
+  map.value.addOverlay(infoOverlay);
+
+  let hoverTimer = null;
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  }
+
+  map.value.on('pointermove', (evt) => {
+    if (evt.dragging) {
+      infoOverlay.setPosition(undefined);
+      return;
+    }
+
+    const coordinate = evt.coordinate;
+
+    if (hoverTimer) clearTimeout(hoverTimer);
+    hoverTimer = setTimeout(async () => {
+      // find top-most visible ImageWMS layer
+      const layers = map.value.getLayers().getArray().slice().reverse(); // top-first
+      let wmsLayer = null;
+      for (const l of layers) {
+        const src = l.getSource && l.getSource();
+        if (src && src instanceof ImageWMS && l.getVisible() && l.get('name') !== 'baseMapLayer' && l.get('name') !== 'backgroundMapLayer') {
+          wmsLayer = l;
+          break;
+        }
+      }
+
+      if (!wmsLayer) {
+        infoOverlay.setPosition(undefined);
+        return;
+      }
+
+      const source = wmsLayer.getSource();
+      const view = map.value.getView();
+      const resolution = view.getResolution();
+      const projection = view.getProjection();
+
+      const url = source.getFeatureInfoUrl(coordinate, resolution, projection, { 'INFO_FORMAT': 'application/json', 'FEATURE_COUNT': 5 });
+      if (!url) {
+        infoOverlay.setPosition(undefined);
+        return;
+      }
+
+      try {
+        const resp = await fetch(url, { mode: 'cors' });
+        if (!resp.ok) throw new Error('GetFeatureInfo failed');
+
+        let infoHtml = '';
+
+        const json = await resp.json();
+        if (json.features && json.features.length > 0) {
+          const featuresHtml = json.features.map(f => {
+            const props = f.properties || {};
+            const name = props.NAME;
+            const datum = props.DATUM;
+            const beschreibung = props.BESCHREIBUNG;
+            const adresse = props.ADRESSE;
+            return `<div>${ name ? escapeHtml(name) + '<br>' : '' }${ datum ? escapeHtml(datum) + '<br>' : '' }${ beschreibung ? escapeHtml(beschreibung) + '<br>' : '' }${ adresse ? escapeHtml(adresse) : '' }</div>`;
+          }).join('<hr/>');
+
+          const layerTitle = wmsLayer.get('title') || wmsLayer.get('id') || 'Layer';
+
+          infoHtml = `<div>
+              <div class="ol-wms-info-title">
+                ${ escapeHtml(layerTitle) }
+              </div>
+              <div class="ol-wms-info-content">${ featuresHtml }</div>
+            </div>`;
+        }
+
+        if (infoHtml && infoHtml.trim() !== '') {
+          infoElement.innerHTML = infoHtml;
+          infoOverlay.setPosition(coordinate);
+        } else {
+          infoOverlay.setPosition(undefined);
+        }
+      } catch (err) {
+        // silently fail and hide overlay
+        console.debug('GetFeatureInfo failed', err);
+        infoOverlay.setPosition(undefined);
+      }
+    }, 150); // debounce
+  });
+}
+
+function initBackgroundMap() {
   fetch('https://sgx.geodatenzentrum.de/wmts_topplus_open/1.0.0/WMTSCapabilities.xml')
     .then(function (response) { return response.text(); }).then(function (text) {
-      const result = parser.read(text);
-      const options = optionsFromCapabilities(result, {
+      const cap = parser.read(text);
+      const options = optionsFromCapabilities(cap, {
         layer: 'web_grau',
         matrixTileSet: 'EU_EPSG_25832_TOPPLUS',
         projection: 'EPSG:25832',
-        attributions: [new Attribution(
-          {
-            html: `Kartendarstellung und Präsentationsgraphiken: © Bundesamt für Kartographie und Geodäsie (2022),
+        attributions: [new Attribution({
+          html: `Kartendarstellung und Präsentationsgraphiken: © Bundesamt für Kartographie und Geodäsie (2022),
             Datenquellen: https://sgx.geodatenzentrum.de/web_public/gdz/datenquellen/Datenquellen_TopPlusOpen.html`,
-          })]
+        })]
       });
 
       const layer = new TileLayer({
         zIndex: 0,
         opacity: 0.5,
-        source: new WMTS(options)
+        source: new WMTS(options),
+        name: 'backgroundMapLayer',
       });
       map.value.addLayer(layer);
     }).catch(reason => console.error(reason));
 };
+
+async function initializeBaseMap() {
+  const baseMapResponse = await services.maps.getBaseMap();
+  const baseMap = baseMapResponse.data.maps[0];
+  if (true) {
+    fetch('https://kartenportal.jena.de/mapproxy/wmts/1.0.0/WMTSCapabilities.xml')
+      .then((response) => (response.text())).then(function (text) {
+        const cap = parser.read(text);
+        const options = optionsFromCapabilities(cap, {
+          layer: 'Stadtplan',
+          matrixTileSet: 'utm32n_th',
+          projection: 'EPSG:25832',
+          attributions: [new Attribution({ html: 'Basiskarte © Stadt Jena, GDI-Th dl-de/by-2-0', })]
+        });
+
+        const layer = new TileLayer({
+          zIndex: 1,
+          opacity: 1,
+          source: new WMTS(options),
+          name: 'baseMapLayer',
+        });
+        map.value.addLayer(layer);
+      }).catch(reason => console.error(reason));
+  } else {
+    const layer = new ImageLayer({
+      extent: [664316, 5634538, 699434, 5652719],
+      zIndex: 1,
+      source: new ImageWMS({
+        url: 'https://map.jena.de/mapproxy/wms',
+        params: {
+          'LAYERS': 'stadtplan'
+        },
+        ratio: 1
+      }),
+      name: 'baseMapLayer',
+    });
+    map.value.addLayer(layer);
+  }
+}
 
 function initFeatureLayer() {
   let featureVectorSource = new VectorSource({
@@ -234,7 +667,7 @@ function initFeatureLayer() {
   });
 
   let featureClusterSource = new Cluster({
-    distance: 12,
+    distance: Number(import.meta.env.VITE_CLUSTER_DISTANCE) || 12,
     source: featureVectorSource
   });
 
@@ -243,157 +676,95 @@ function initFeatureLayer() {
     source: featureClusterSource,
     zIndex: 11001,
     style(feature) {
-      const featureCount = feature.get('features').length;
+      const featuresArr = feature.get('features');
+      const featureCount = featuresArr ? featuresArr.length : 1;
+      const label = featureCount > 1 ? String(featureCount) : null;
 
-      let textStyle;
-      let textFillColor;
-      let circleStrokeColor;
-      if (theme.global.name.value === 'a11yDtsTheme') {
-        textFillColor = '#000'
-        circleStrokeColor = 'rgba(0, 0, 0, 0.5)'
-      } else {
-        textFillColor = '#fff'
-        circleStrokeColor = 'rgba(255, 255, 255, 0.5)'
-      };
-
-      if (featureCount > 1) {
-        textStyle = new Text({
-          text: featureCount.toString(),
-          fill: new Fill({
-            color: textFillColor,
-          }),
-          font: '10px sans-serif',
-          textAlign: 'center',
-          textBaseline: 'middle',
-          offsetX: 0,
-          offsetY: 0,
-          stroke: new Stroke({
-            color: 'rgba(255, 255, 255, 0.5)',
-            width: 1
-          }),
-        });
-      };
-
-      let fillColor = mapStore.defaultPointColor;
-      const style = new Style({
-        image: new Circle({
-          radius: 11,
-          stroke: new Stroke({
-            color: circleStrokeColor,
-          }),
-          fill: new Fill({
-            color: fillColor,
-          }),
-          cursor: 'pointer',
-        }),
-        text: textStyle
+      return createPointStyle({
+        fillColor: defaultPointCircleFillColor.value,
+        strokeColor: defaultPointCircleStrokeColor.value,
+        textColor: defaultPointTextColor.value,
+        textStrokeColor: defaultPointTextStrokeColor.value,
+        text: label,
+        radius: Number(import.meta.env.VITE_FEATURE_RADIUS) || 11
       });
-
-      watch(() => mapStore.defaultPointColor, (newColor) => {
-        console.log("defaultPointerColor watcher called")
-        fillColor = newColor;
-        if (style.getImage().getFill()) {
-          style.getImage().getFill().setColor(fillColor);
-        }
-        featureLayer.value.changed();
-      });
-
-      return style;
-    },
+    }
   });
+
+  if (!map.value) {
+    initMap();
+  }
   map.value.addLayer(featureLayer.value);
 }
 
-function initFeaturedFeatureLayer() {
-  let featuredFeatureVectorSource = new VectorSource({
+function initResultFeatureLayer() {
+  let resultFeatureVectorSource = new VectorSource({
     features: []
   });
 
-  featuredFeatureLayer.value = new VectorLayer({
-    name: 'featuredFeatureLayer',
-    source: featuredFeatureVectorSource,
+  let resultFeatureClusterSource = new Cluster({
+    distance: Number(import.meta.env.VITE_CLUSTER_DISTANCE) || 12,
+    source: resultFeatureVectorSource
+  });
+
+  resultFeatureLayer.value = new VectorLayer({
+    name: 'resultFeatureLayer',
+    source: resultFeatureClusterSource,
     zIndex: 11002,
     style(feature) {
-      const featureCount = 1;
+      const featuresArr = feature.get('features');
+      const featureCount = featuresArr ? featuresArr.length : 1;
+      const label = featureCount > 1 ? String(featureCount) : null;
 
-      let textStyle;
-      let textFillColor;
-      let circleStrokeColor;
-      if (theme.global.name.value === 'a11yDtsTheme') {
-        textFillColor = '#000'
-        circleStrokeColor = 'rgba(0, 0, 0, 0.5)'
-      } else {
-        textFillColor = '#fff'
-        circleStrokeColor = 'rgba(255, 255, 255, 0.5)'
-      };
-
-      if (featureCount > 1) {
-        textStyle = new Text({
-          text: featureCount.toString(),
-          fill: new Fill({
-            color: textFillColor,
-          }),
-          font: '10px sans-serif',
-          textAlign: 'center',
-          textBaseline: 'middle',
-          offsetX: 0,
-          offsetY: 0,
-          stroke: new Stroke({
-            color: 'rgba(255, 255, 255, 0.5)',
-            width: 1
-          }),
-        });
-      };
-
-      let fillColor = mapStore.resultPointColor;
-      const style = new Style({
-        image: new Circle({
-          radius: 11,
-          stroke: new Stroke({
-            color: circleStrokeColor,
-          }),
-          fill: new Fill({
-            color: fillColor,
-          }),
-          cursor: 'pointer',
-        }),
-        text: textStyle
+      return createPointStyle({
+        fillColor: resultPointCircleFillColor.value,
+        strokeColor: resultPointCircleStrokeColor.value,
+        textColor: resultPointTextColor.value,
+        textStrokeColor: resultPointTextStrokeColor.value,
+        text: label,
+        radius: Number(import.meta.env.VITE_RESULT_FEATURE_RADIUS) || 11
       });
-
-      watch(() => mapStore.resultPointColor, (newColor) => {
-        console.log("resultPointerColor watcher called")
-        fillColor = newColor;
-        if (style.getImage().getFill()) {
-          style.getImage().getFill().setColor(fillColor);
-        }
-        featureLayer.value.changed();
-      });
-
-      return style;
     }
   });
-  map.value.addLayer(featuredFeatureLayer.value);
+  map.value.addLayer(resultFeatureLayer.value);
+}
+
+function initTopResultFeatureLayer() {
+  let topResultFeatureVectorSource = new VectorSource({
+    features: []
+  });
+
+  topResultFeatureLayer.value = new VectorLayer({
+    name: 'topResultFeatureLayer',
+    source: topResultFeatureVectorSource,
+    zIndex: 11003,
+    style(feature) {
+      // top result features are single features (no cluster)
+      const label = null;
+      return createPointStyle({
+        fillColor: resultPointCircleFillColor.value,
+        strokeColor: resultPointCircleStrokeColor.value,
+        textColor: resultPointTextColor.value,
+        textStrokeColor: resultPointTextStrokeColor.value,
+        text: label,
+        radius: Number(import.meta.env.VITE_TOP_RESULT_FEATURE_RADIUS) || 13
+      });
+    }
+  });
+  map.value.addLayer(topResultFeatureLayer.value);
 }
 
 async function initFeatures() {
-  await services.lemmata.getAllLemmata().then((res) => {
-    featureModel.value = res.data.allLemmata;
-    let features = [];
+  console.debug("initFeatures called");
+  await services.lemma.getAllLemmata().then((res) => {
+    const allLemmata = res.data.allLemmata;
+    const featuresCoordinatesMap = new Map();
 
-    for (let i = 0; i < featureModel.value.length; i++) {
-      let featureInfo = featureModel.value[i];
+    for (let i = allLemmata.length - 1; i >= 0; i--) {
+      const featureInfo = allLemmata[i];
+      const coordinate = [featureInfo["utm_coord_e"], featureInfo["utm_coord_n"]];
+      const locationKey = `${ coordinate[0] }_${ coordinate[1] }`;
 
-      let featureLocationE = featureInfo["utm_coord_e"];
-      let featureLocationN = featureInfo["utm_coord_n"];
-      let coordinate = [featureLocationE, featureLocationN];
-
-      // Step 1: UTM (EPSG:25832) to lon/lat (EPSG:4326)
-      const lonLat = proj4('EPSG:25832', 'EPSG:4326', coordinate);
-      // Step 2: lon/lat to Web Mercator (EPSG:3857)
-      const webMercatorCoord = fromLonLat(lonLat, 'EPSG:3857');
-
-      // Create the identifying feature location string.
-      let featureLocationStr = "" + featureLocationE + "_" + featureLocationN;
       const feature = new Feature({
         lemmaId: featureInfo["id"],
         title: featureInfo["title"],
@@ -401,30 +772,30 @@ async function initFeatures() {
         popupTitle: featureInfo["timeline_title"],
         featureType: 0,
         img: `/img/${ featureInfo["thumbnail_file_name"] }`,
-        geometry: new Point(webMercatorCoord),
+        geometry: new Point(coordinate),
         featured: featureInfo["featured"],
       });
 
-      // const src = 'EPSG:25832'
-      // const dest = 'EPSG:3857'
-      // feature.getGeometry().transform(src, dest)
-
-      if (features[featureLocationStr]) {
-        features[featureLocationStr].push(feature);
+      const group = featuresCoordinatesMap.get(locationKey);
+      if (group) {
+        group.push(feature);
       } else {
-        features[featureLocationStr] = [];
-        features[featureLocationStr].push(feature);
-      };
+        featuresCoordinatesMap.set(locationKey, [feature]);
+      }
     }
 
-    let featureVectorSource = featureLayer.value.getSource().getSource();
-    let featuredFeatureVectorSource = featuredFeatureLayer.value.getSource();
+    const featureVectorSource = featureLayer.value.getSource().getSource();
+    const resultFeatureVectorSource = resultFeatureLayer.value.getSource().getSource();
+    const topResultFeatureVectorSource = topResultFeatureLayer.value.getSource();
 
-    // Distribute features with same coordinates in a rhombus pattern.
-    for (let existingLocation in features) {
-      let amountOfFeaturesAtLoc = features[existingLocation].length;
-      let coords = features[existingLocation][0]?.getGeometry()?.getCoordinates();
+    const allFeatures = [];
+    const normalFeatures = [];
+    const resultFeatures = [];
+    const topResultFeatures = [];
+    let topResultCount = 0;
 
+    for (const featureGroup of featuresCoordinatesMap.values()) {
+      const coords = featureGroup[0]?.getGeometry()?.getCoordinates();
       let offset = 5;
       let layer = 0;
       let layerElement = 1;
@@ -432,7 +803,7 @@ async function initFeatures() {
       let lastElementPosX = coords[0];
       let lastElementPosY = coords[1];
 
-      for (let i = 0; i < amountOfFeaturesAtLoc; i++) {
+      for (let i = 0; i < featureGroup.length; i++) {
         if (i > 0) {
           if (layerElement <= layer * 8) {
             if (layerElement <= layer * 2) {
@@ -457,45 +828,146 @@ async function initFeatures() {
           }
         }
 
-        features[existingLocation][i].getGeometry().setCoordinates([lastElementPosX, lastElementPosY]);
+        // Set the coordinates of the feature to the new position.
+        featureGroup[i].getGeometry().setCoordinates([lastElementPosX, lastElementPosY]);
+        // Add the feature to the features array.
+        allFeatures.push(featureGroup[i]);
 
-        if (features[existingLocation][i].get('featured')) {
-          featuredFeatureVectorSource.addFeature(features[existingLocation][i]);
+
+
+        if (featureGroup[i].get('featured')) {
+          if (topResultCount < 5) {
+            // Add the first 5 featured results to the top result layer.
+            topResultCount++;
+            topResultFeatures.push(featureGroup[i]);
+          } else {
+            // If the top result layer is full, add to the result layer.
+            resultFeatures.push(featureGroup[i]);
+          }
         } else {
-          featureVectorSource.addFeature(features[existingLocation][i]);
+          // If the feature is not featured, add it to the normal feature layer.
+          normalFeatures.push(featureGroup[i]);
         }
       }
     }
 
+    featureVectorSource.addFeatures(normalFeatures);
+    resultFeatureVectorSource.addFeatures(resultFeatures);
+    topResultFeatureVectorSource.addFeatures(topResultFeatures);
+
+    for (const feature of topResultFeatures) {
+      showFeaturePopup(feature, 'topResultFeatureLayer');
+    }
+
+    features.value = allFeatures;
+    featureById.value = new Map(allFeatures.map((feature) => [feature.get('lemmaId'), feature]));
   });
 }
 
-function initMap(mapData) {
+async function showQueryFeatures() {
+  console.debug("showQueryFeatures called");
+  if (!featureLayer.value) {
+    initFeatureLayer();
+  }
+  let featureVectorSource = featureLayer.value.getSource().getSource();
+  if (!resultFeatureLayer.value) {
+    initResultFeatureLayer();
+  }
+  let resultFeatureVectorSource = resultFeatureLayer.value.getSource().getSource();
+  if (!topResultFeatureLayer.value) {
+    initTopResultFeatureLayer();
+  }
+  let topResultFeatureVectorSource = topResultFeatureLayer.value.getSource();
+
+  closeAllPopups();
+  featureVectorSource.clear();
+  resultFeatureVectorSource.clear();
+  topResultFeatureVectorSource.clear();
+
+  const queryResults = searchQueryStore.queryResult.artikel || [];
+  const top5QueryResult = queryResults.slice(0, 5);
+  const resultQueryIds = new Set(queryResults.slice(5).map((artikel) => artikel.id));
+  const top5Ids = new Set(top5QueryResult.map((artikel) => artikel.id));
+
+  const normalFeatures = [];
+  const resultFeatures = [];
+  const topResultFeatures = [];
+
+  for (const feature of features.value) {
+    const lemmaId = feature.get('lemmaId');
+    if (top5Ids.has(lemmaId)) {
+      topResultFeatures.push(feature);
+    } else if (resultQueryIds.has(lemmaId)) {
+      resultFeatures.push(feature);
+    } else {
+      normalFeatures.push(feature);
+    }
+  }
+
+  featureVectorSource.addFeatures(normalFeatures);
+  resultFeatureVectorSource.addFeatures(resultFeatures);
+
+  for (let i = top5QueryResult.length - 1; i >= 0; i--) {
+    const artikel = top5QueryResult[i];
+    const feature = featureById.value.get(artikel.id);
+    if (feature) {
+      topResultFeatureVectorSource.addFeature(feature);
+      showFeaturePopup(feature, 'topResultFeatureLayer');
+    }
+  }
+
+  // featureLayer.value.changed();
+  // resultFeatureLayer.value.changed();
+}
+
+function resetActivePopovers() {
+  activePopovers.value = [];
+}
+
+function showActivePopovers() {
+  activePopovers.value.forEach((activeElement) => {
+    showFeaturePopup(activeElement.feature, activeElement.layer);
+  });
+}
+
+function focusMapOnActivePopovers() {
+  let allCoordinates = [];
+
+  activePopovers.value.forEach((activeElement) => {
+    allCoordinates.push(activeElement.feature.getGeometry().getCoordinates());
+  });
+
+  if (allCoordinates.length > 0) {
+    const extent = boundingExtent(allCoordinates);
+    fitViewToArea({
+      x_min: extent[0],
+      y_min: extent[1],
+      x_max: extent[2],
+      y_max: extent[3],
+    });
+  }
+};
+
+async function initMapLayer(mapData) {
   // display new map
   const id = mapData["id"];
   const url = mapData["url"];
-  const service = mapData["service"]
-  let mapLayer = mapStore.mapLayers.find((layer) => layer.get("id") === id);
+  const service = mapData["service"];
+  let mapLayer = map.value.getLayers().getArray().find((layer) => layer.get("id") === id);
 
   // init layer if it is not available already
   if (!mapLayer) {
     // Decide which type of map is to be initialized.
-    if (service === "wms") {
+    if (service && service.toLowerCase() === "wms") {
       initWMSLayer(mapData);
+      mapLayer = map.value.getLayers().getArray().find((layer) => layer.get("id") === id);
     } else {
       // Fetch infos about AGS map service.
-      axios.post(url + "?f=json").then((response) => {
+      await axios.post(url + "?f=json").then((response) => {
         const agsInfo = response.data;
-        console.info(url, agsInfo);
-
 
         if (typeof agsInfo.error != "undefined") {
-          console.warn(
-            "Eigenschaften des Kartendienstes " +
-            url +
-            " konnten nicht abgerufen werden.",
-            agsInfo.error
-          );
+          console.warn(`Eigenschaften des Kartendienstes ${ url } konnten nicht abgerufen werden.`, agsInfo.error);
           return;
         }
 
@@ -507,19 +979,15 @@ function initMap(mapData) {
           initDynamicLayer(mapData, url, agsInfo);
         }
 
-        mapLayer = mapStore.mapLayers.find((layer) => layer.get("id") === id);
-
-        mapLayer.setVisible(true);
-        mapLayer.setOpacity(1);
+        mapLayer = map.value.getLayers().getArray().find((layer) => layer.get("id") === id);
 
       }).catch((error) => {
         console.error("OHOH", url, error);
       })
     }
-  } else {
-    mapLayer.setVisible(true);
-    mapLayer.setOpacity(1);
   }
+
+  return mapLayer;
 }
 
 /**
@@ -539,6 +1007,7 @@ function initWMSLayer(mapData) {
     xmax: mapData["x_max"],
     ymax: mapData["y_max"],
     zIndex: 10,
+    opacity: 0.5,
     source: new ImageWMS({
       url: mapData["url"],
       params: { 'LAYERS': mapData["layer"] },
@@ -548,7 +1017,6 @@ function initWMSLayer(mapData) {
     }),
   });
 
-  mapStore.mapLayers.push(layer);
   map.value.addLayer(layer);
 }
 
@@ -571,7 +1039,7 @@ function initCachedLayer(mapData, url, agsInfo) {
     xmax: mapData["x_max"],
     ymax: mapData["y_max"],
     //visible: true,
-    opacity: 1,
+    opacity: 0.5,
     zIndex: 100,
     source: new XYZ({
       minZoom: 0,
@@ -591,8 +1059,6 @@ function initCachedLayer(mapData, url, agsInfo) {
       url: url + "/tile/{z}/{y}/{x}",
     }),
   });
-
-  mapStore.mapLayers.push(layer);
 
   map.value.addLayer(layer);
 }
@@ -616,7 +1082,7 @@ function initDynamicLayer(mapData, url, agsInfo) {
     xmax: mapData["x_max"],
     ymax: mapData["y_max"],
     //visible: true,
-    opacity: 1,
+    opacity: 0.5,
     zIndex: 100,
     source: new ImageArcGISRest({
       ratio: 1,
@@ -627,20 +1093,24 @@ function initDynamicLayer(mapData, url, agsInfo) {
     }),
   });
 
-  mapStore.mapLayers.push(layer);
-
   map.value.addLayer(layer);
 }
 
-async function showArticleFeature() {
+async function showArticleFeature(ortId = null) {
   featureLayer.value.setVisible(false);
-  featuredFeatureLayer.value.setVisible(false);
+  resultFeatureLayer.value.setVisible(false);
+  topResultFeatureLayer.value.setVisible(false);
   if (netFeatureLayer.value) {
     netFeatureLayer.value.setVisible(false);
   }
   try {
     if (lemmaStore.lemma.locations.length > 1) {
+      storedExtent.value = map.value.getView().calculateExtent();
       let netFeatures = [];
+      let netXMin = Infinity;
+      let netYMin = Infinity;
+      let netXMax = -Infinity;
+      let netYMax = -Infinity;
       lemmaStore.lemma.locations.forEach((location) => {
 
         let mainLocation = location["main_location"];
@@ -648,30 +1118,25 @@ async function showArticleFeature() {
         let featureLocationN = location["utm_coord_n"];
         let coordinate = [featureLocationE, featureLocationN];
 
-        // Step 1: UTM (EPSG:25832) to lon/lat (EPSG:4326)
-        const lonLat = proj4('EPSG:25832', 'EPSG:4326', coordinate);
-        // Step 2: lon/lat to Web Mercator (EPSG:3857)
-        const webMercatorCoord = fromLonLat(lonLat, 'EPSG:3857');
+        // Update net extent
+        if (featureLocationE < netXMin) netXMin = featureLocationE;
+        if (featureLocationN < netYMin) netYMin = featureLocationN;
+        if (featureLocationE > netXMax) netXMax = featureLocationE;
+        if (featureLocationN > netYMax) netYMax = featureLocationN;
 
         // Create the identifying feature location string.
         var featureLocationStr = "" + featureLocationE + "_" + featureLocationN;
         let feature = new Feature({
-          geometry: new Point(webMercatorCoord),
+          geometry: new Point(coordinate),
           featureType: 0,
           title: location["internal_name"],
           img: `/img/${ location["thumbnail_file_name"] }`,
           lemmaId: location["lemma_id"],
           locationId: location["id"],
+          locationDateLabel: location["location_date_label"],
           locationRelevance: location["location_relevance"],
           locationNr: location["nr_of_location"]
         });
-
-        // if (netFeatures[featureLocationStr]) {
-        //   netFeatures[featureLocationStr].push(feature);
-        // } else {
-        //   netFeatures[featureLocationStr] = [];
-        //   netFeatures[featureLocationStr].push(feature);
-        // };
 
         netFeatures.push(feature);
       });
@@ -680,7 +1145,7 @@ async function showArticleFeature() {
         features: netFeatures
       });
       let netFeatureClusterSource = new Cluster({
-        distance: 12,
+        distance: Number(import.meta.env.VITE_CLUSTER_DISTANCE) || 12,
         source: netFeatureVectorSource
       });
 
@@ -689,75 +1154,46 @@ async function showArticleFeature() {
         source: netFeatureClusterSource,
         zIndex: 11000,
         style(feature) {
-          const featureCount = feature.get('features').length;
+          const featuresArr = feature.get('features');
+          const featureCount = featuresArr ? featuresArr.length : 1;
+          const label = featureCount > 1 ? String(featureCount) : null;
 
-          let textStyle;
-          let textFillColor;
-          let circleStrokeColor;
-          if (theme.global.name.value === 'a11yDtsTheme') {
-            textFillColor = '#000';
-            circleStrokeColor = 'rgba(0, 0, 0, 0.5)';
-          } else {
-            textFillColor = '#fff';
-            circleStrokeColor = 'rgba(255, 255, 255, 0.5)';
-          }
-
-          if (featureCount > 1) {
-            textStyle = new Text({
-              text: featureCount.toString(),
-              fill: new Fill({
-                color: textFillColor,
-              }),
-              font: '10px sans-serif',
-              textAlign: 'center',
-              textBaseline: 'middle',
-              offsetX: 0,
-              offsetY: 0,
-              stroke: new Stroke({
-                color: 'rgba(255, 255, 255, 0.5)',
-                width: 1,
-              }),
-            });
-          }
-
-          let fillColor = mapStore.netPointColor;
-          const style = new Style({
-            image: new Circle({
-              radius: 11,
-              stroke: new Stroke({
-                color: circleStrokeColor,
-              }),
-              fill: new Fill({
-                color: fillColor,
-              }),
-              cursor: 'pointer',
-            }),
-            text: textStyle
+          return createPointStyle({
+            fillColor: netPointCircleFillColor.value,
+            strokeColor: netPointCircleStrokeColor.value,
+            textColor: netPointTextColor.value,
+            textStrokeColor: netPointTextStrokeColor.value,
+            text: label,
+            radius: Number(import.meta.env.VITE_NET_FEATURE_RADIUS) || 11
           });
-
-          watch(() => mapStore.netPointColor, (newColor) => {
-            console.log("netPointerColor watcher called")
-            fillColor = newColor;
-            if (style.getImage().getFill()) {
-              style.getImage().getFill().setColor(fillColor);
-            }
-            netFeatureLayer.value.changed();
-          });
-
-          return style;
         },
       });
       netFeatureLayer.value.setVisible(true);
       map.value.addLayer(netFeatureLayer.value);
       closeAllPopups();
-      let i = 0;
-      do {
-        showFeaturePopup(netFeatures[i], 'netFeatureLayer');
-        i++;
-      } while (netFeatures.length >= i + 1 && i < 5);
+      fitViewToArea({
+        x_min: netXMin,
+        y_min: netYMin,
+        x_max: netXMax,
+        y_max: netYMax,
+      });
+      if (ortId) {
+        const netFeature = netFeatures.find((feature) => feature.get('locationId') === ortId);
+        if (netFeature) {
+          showFeaturePopup(netFeature, 'netFeatureLayer');
+        }
+      } else if (netFeatures.length <= 7) {
+        let i = 0;
+        do {
+          showFeaturePopup(netFeatures[i], 'netFeatureLayer');
+          i++;
+        } while (netFeatures.length >= i + 1 && i < 7);
+      }
     } else {
+      topResultFeatureLayer.value.setVisible(true);
+      resultFeatureLayer.value.setVisible(true);
       featureLayer.value.setVisible(true);
-      showFeaturePopup(featureLayer.value.getSource().getFeatures().find((feature) => feature.get('lemmaId') === lemmaStore.lemma.id), 'featureLayer');
+      showFeaturePopup(featureById.value.get(lemmaStore.lemma.version[0]['lemma_id']), 'featureLayer');
     }
   } catch (error) {
     console.error(error);
@@ -774,17 +1210,19 @@ function openPopupOnMapClick() {
   map.value.on('click', (e) => {
     map.value.forEachFeatureAtPixel(e.pixel, (feature, layer) => {
       const layerName = layer.get('name');
-      const featureLemmaId = layerName === 'featuredFeatureLayer' || layerName === 'resultFeatureLayer'
+      const featureLemmaId = layerName === 'topResultFeatureLayer'
         ? feature.get('lemmaId')
         : feature.get('features')[0].get('lemmaId');
-      const featureTitle = layerName === 'featuredFeatureLayer' || layerName === 'resultFeatureLayer'
+      const featureTitle = layerName === 'topResultFeatureLayer'
         ? feature.get('title')
         : feature.get('features')[0].get('title');
       console.log(`feature click\nlayer: ${ layerName }\nfeature: ${ featureLemmaId } ${ featureTitle }`);
       console.debug('feature', feature);
       console.debug('layer', layer);
 
-      if (layerName === "featureLayer") {
+      if (layerName === 'topResultFeatureLayer') {
+        showFeaturePopup(feature, layerName);
+      } else if (layerName === 'resultFeatureLayer') {
         const features = feature.get('features');
         if (features.length > 1) {
           const extent = boundingExtent(features.map((r) => r.getGeometry().getCoordinates()));
@@ -792,9 +1230,8 @@ function openPopupOnMapClick() {
         } else {
           showFeaturePopup(features[0], layerName);
         }
-      } else if (layerName === 'featuredFeatureLayer') {
-        showFeaturePopup(feature, layerName);
-      } else if (layerName === 'resultFeatureLayer') {
+      } else if (layerName === "featureLayer") {
+        const features = feature.get('features');
         if (features.length > 1) {
           const extent = boundingExtent(features.map((r) => r.getGeometry().getCoordinates()));
           map.value.getView().fit(extent, { duration: 1000, padding: [250, 250, 250, 250] });
@@ -818,7 +1255,7 @@ function openPopupOnMapClick() {
 };
 
 function showFeaturePopup(feature, layerName) {
-  console.log(`showFeaturePopup\nlayer: ${ layerName }\nfeature: ${ feature.values_.lemmaId } ${ feature.values_.title }`);
+  if (!feature) return;
   const featureProperties = feature.values_;
   const coordinates = feature.getGeometry().getCoordinates();
 
@@ -835,18 +1272,21 @@ function showFeaturePopup(feature, layerName) {
 
   if (foundPopup) {
     foundPopup.overlay.setPosition(coordinates);
+    if (layerName !== 'netFeatureLayer' && !activePopovers.value.some((activeElement) => activeElement.feature.get('lemmaId') === featureProperties.lemmaId)) {
+      activePopovers.value.push({ feature: feature, layer: layerName });
+    }
     foundPopup.content.parentElement.style.zIndex = ++overlayZIndex.value;
     return true; // return true only handle the click on the top most feature
   }
 
   const content = document.createElement('div');
   content.classList.add('ol-popup');
-  if (layerName === 'featuredFeatureLayer') {
+  if (layerName === 'topResultFeatureLayer' || layerName === 'resultFeatureLayer') {
     content.id = `featured-popup-${ featureProperties.lemmaId }`;
     content.innerHTML = `
     <div class="popup-click">
       <h3 class="heading">
-        <div class="title">
+        <div class="title dts-text">
           <i class="${ feature.get('icon') } popup-icon"></i>
           ${ featureProperties.popupTitle ? featureProperties.popupTitle : featureProperties.title }
         </div>
@@ -862,13 +1302,13 @@ function showFeaturePopup(feature, layerName) {
     content.innerHTML = `
       <div class="popup-click">
         <h3 class="net-heading">
-          <div class="net-title">
+          <div class="net-title dts-text">
             ${ featureProperties.title }
           </div>
           <span class="fa fa-close popup-closer"></span>
         </h3>
-        <div class="popup-text-container">
-          ${ featureProperties.locationRelevance }
+        <div class="popup-text-container dts-text">
+          ${ featureProperties.locationRelevance } ${ featureProperties.locationDateLabel != null ? '(' + featureProperties.locationDateLabel + ')' : '' }
         </div>
       </div>`;
   } else {
@@ -876,7 +1316,7 @@ function showFeaturePopup(feature, layerName) {
     content.innerHTML = `
     <div class="popup-click">
       <h3 class="heading">
-        <div class="title">
+        <div class="title dts-text">
           <i class="${ feature.get('icon') } popup-icon"></i>
           ${ featureProperties.popupTitle ? featureProperties.popupTitle : featureProperties.title }
         </div>
@@ -911,6 +1351,9 @@ function showFeaturePopup(feature, layerName) {
   const closeButton = content.querySelector('.popup-closer');
   closeButton.addEventListener('click', () => {
     popupOverlay.setPosition(undefined);
+    activePopovers.value.splice(activePopovers.value.findIndex((activeElement) =>
+      activeElement.feature.get('lemmaId') === featureProperties.lemmaId
+    ), 1);
     closer.value.blur();
     return false;
   });
@@ -926,6 +1369,11 @@ function showFeaturePopup(feature, layerName) {
       handleClickedFeature(featureProperties);
     });
   }
+
+  // Keep track of active popovers (non-netFeatureLayer)
+  if (layerName !== 'netFeatureLayer' && !activePopovers.value.some((activeElement) => activeElement.feature.get('lemmaId') === featureProperties.lemmaId)) {
+    activePopovers.value.push({ feature: feature, layer: layerName });
+  }
 }
 
 function showNetPopup(lemmaId, locationId) {
@@ -937,21 +1385,22 @@ function showNetPopup(lemmaId, locationId) {
 }
 
 function closeAllPopups() {
-  popups.value.forEach((popup) => {
-    popup.overlay.setPosition(undefined);
-  });
+  try {
+    popups.value.forEach((popup) => {
+      popup.overlay.setPosition(undefined);
+    });
+  } catch (ReferenceError) {
+    console.debug("No popups to close.");
+  }
 };
 
 async function handleClickedFeature(feature) {
-  await lemmaStore.fetchArticle(feature.lemmaId);
+  await lemmaStore.fetchLemma(feature.lemmaId);
   viewControllerStore.setCurrentView('article');
-  showArticleFeature();
 }
 
 function showMapSettings() {
   try {
-    mapStore.fetchHistoricMapData();
-    mapStore.fetchThematicMapData();
     viewControllerStore.setCurrentView('mapSettings');
   } catch (error) {
     console.error(error);
@@ -960,37 +1409,37 @@ function showMapSettings() {
 
 function toggleMapPoints(value) {
   featureLayer.value.setVisible(value);
+  if (resultFeatureLayer.value) {
+    resultFeatureLayer.value.setVisible(value);
+  }
+  if (topResultFeatureLayer.value) {
+    topResultFeatureLayer.value.setVisible(value);
+  }
+  if (netFeatureLayer.value) {
+    netFeatureLayer.value.setVisible(value);
+  }
+  closeAllPopups();
 };
 
 /**
  * Logs the current extent of the map to the console when the map is moved. If needed it can be initialized by calling the function in the onMounted hook.
  */
-function logExtentOnMapMoveEnd() {
+function logViewOnMapMoveEnd() {
   map.value.on('moveend', () => {
-    console.log(map.value.getView().calculateExtent(map.value.getSize()));
+    console.debug('Info', { extent: map.value.getView().calculateExtent(map.value.getSize()), zoom: map.value.getView().getZoom(), center: map.value.getView().getCenter() });
   });
 };
 </script>
+
 <template>
   <div id="map"></div>
-  <div
-    id="popup"
-    class="ol-popup"
-  >
-    <span
-      id="popup-closer"
-      class="fa fa-close popup-closer"
-    ></span>
-    <div id="popup-content"></div>
-  </div>
   <div class="text-center accessibility">
-    <!-- <A11Y /> -->
     <v-btn
-      v-bind="activatorProps"
-      variant="text"
       class="iconA11Y"
+      variant="text"
       width="auto"
       icon="fa fa-low-vision"
+      title="Farbschema Barrierefreiheit"
       aria-label="Farbschema Barrierefreiheit"
       @click="switchTheme"
     >
@@ -998,11 +1447,12 @@ function logExtentOnMapMoveEnd() {
   </div>
   <v-btn
     class="iconMap"
-    icon="fa fa-map"
     variant="text"
     width="auto"
-    @click="showMapSettings"
+    icon="fa fa-map"
+    title="Karteneinstellungen"
     aria-label="Karteneinstellungen"
+    @click="showMapSettings"
   >
   </v-btn>
   <v-btn
@@ -1010,20 +1460,17 @@ function logExtentOnMapMoveEnd() {
     icon="fas fa-location-arrow"
     variant="text"
     width="auto"
+    title="Lokalisierung"
     aria-label="Lokalisierung"
+    @click="locateUser"
   >
   </v-btn>
-  <router-link
-    target="_blank"
-    :to="{ path: '/Hilfe', query: { a11yTheme: theme.global.name.value === 'a11yDtsTheme' } }"
-    aria-label="Hilfeseite aufrufen"
-  >
-    <v-icon
-      class="iconQuestion"
-      icon="fa fa-question-circle"
-    />
-  </router-link>
+  <HelpButton />
+  <A11yStatementButton v-if="a11yStatementButtonActive" />
+  <PlainLanguageButton v-if="plainLanguageButtonActive" />
+  <SignLanguageButton v-if="signLanguageButtonActive" />
 </template>
+
 <style lang="scss">
 #map {
   position: fixed;
@@ -1036,10 +1483,10 @@ function logExtentOnMapMoveEnd() {
 .title {
   display: flex;
   gap: 5px;
-  overflow-wrap: anywhere;
+  hyphens: auto;
 
   &:hover {
-    color: var(--dts-color-font-hover);
+    color: rgba(var(--v-theme-font-hover), 0.5);
   }
 }
 
@@ -1072,8 +1519,42 @@ function logExtentOnMapMoveEnd() {
   opacity: 0.5;
 }
 
+.ol-wms-info {
+  position: absolute;
+  background: var(--dts-color-bg);
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-size: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  max-width: 280px;
+
+  .ol-wms-info-title {
+    background-color: rgba(var(--v-theme-primary), 0.8);
+    color: rgb(var(--v-theme-white));
+    border-radius: 5px 5px 0 0;
+    margin: 0;
+    padding: 6px 6px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    display: grid;
+    grid-template-areas:
+      "icon heading close";
+    flex-direction: row;
+    gap: 5px;
+  }
+
+  .ol-wms-info-content {
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 3px 6px;
+    font-size: 14px;
+    background-color: var(--dts-color-bg);
+  }
+}
+
 .ol-popup:after {
-  border-top-color: var(--vt-c-white);
+  border-top-color: white;
   border-width: 10px;
   left: 50%;
   margin-left: -10px;
@@ -1088,15 +1569,15 @@ function logExtentOnMapMoveEnd() {
 
 .popup-closer {
   font-size: 20px;
-  color: var(--dts-color-closer);
+  color: rgba(var(--v-theme-closer), 0.4);
   grid-area: close;
   text-align: end;
   cursor: pointer;
 }
 
 .heading {
-  background-color: var(--dts-color-foxbrush);
-  color: var(--dts-color-anticipation);
+  background-color: rgba(var(--v-theme-primary), 0.8);
+  color: rgb(var(--v-theme-white));
   border-radius: 5px 5px 0 0;
   margin: 0;
   padding: 6px 6px;
@@ -1111,8 +1592,8 @@ function logExtentOnMapMoveEnd() {
 }
 
 .net-heading {
-  background-color: var(--dts-color-foxbrush);
-  color: var(--dts-color-anticipation);
+  background-color: rgba(var(--v-theme-primary), 0.8);
+  color: rgb(var(--v-theme-white));
   border-radius: 5px 5px 0 0;
   margin: 0;
   padding: 6px 6px;
@@ -1153,74 +1634,63 @@ function logExtentOnMapMoveEnd() {
 // Mixin for style reusability
 @mixin icon_style {
   position: fixed;
-  left: 16px;
+  left: 1rem;
   cursor: pointer;
-  color: rgba(var(--v-theme-foxbrush), 0.8);
+  color: rgba(var(--v-theme-primary), 0.8);
 }
 
 .accessibility {
   @include icon_style();
   top: 6rem;
-  z-index: 1000;
+}
+
+.ol-zoom {
+  @include icon_style();
+  top: 10rem;
+
+  @media only screen and (max-width: 780px) {
+    display: none;
+  }
+}
+
+.ol-rotate {
+  @include icon_style();
+  top: 20rem;
+  font-size: 1.2em;
+  display: inline-block;
+  width: min-content;
+
+  @media only screen and (max-width: 780px) {
+    top: 15rem;
+    font-size: 1em;
+  }
 }
 
 .v-btn--icon.v-btn--size-default {
   &.iconMap {
-    top: 30%;
     @include icon_style();
+    top: 15rem;
 
     @media only screen and (max-width: 780px) {
-      font-size: 1.2rem;
+      top: 9rem;
+      font-size: 1rem;
     }
   }
-}
 
-.v-btn--icon.v-btn--size-default {
   &.iconLocation {
     @include icon_style();
-    top: 43%;
+    top: 20rem;
 
     @media only screen and (max-width: 780px) {
-      font-size: 1.6rem;
-      left: 13px;
+      top: 12rem;
+      font-size: 1.1rem;
+    }
+
+    /* hide on medium/large screens */
+    @media (min-width: 781px) {
+      display: none;
     }
   }
 }
 
-.iconQuestion {
-  @include icon_style();
-  top: 38%;
-
-  @media only screen and (max-width: 780px) {
-    font-size: 2.3rem;
-    left: 13px;
-  }
-}
-
-.ol-zoom {
-  top: 10rem !important;
-  left: 1rem !important;
-
-  @media only screen and (max-width: 780px) {
-    display: none;
-  }
-}
-
-@media (min-width: 780px) and (max-width: 2560px) {
-  .iconLocation {
-    display: none;
-  }
-}
-
-@media only screen and (max-width: 780px) {
-  .v-btn--icon.v-btn--size-default {
-    &.iconLocation {
-      top: 36.5%;
-    }
-  }
-
-  .iconQuestion {
-    top: 44%;
-  }
-}
 </style>

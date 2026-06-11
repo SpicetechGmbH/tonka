@@ -1,22 +1,27 @@
 <template>
-    <div class="footer">
+    <div
+        id="footer"
+        class="footer"
+    >
         <span>
             <a
-                href=""
+                href="https://sgx.geodatenzentrum.de/web_public/gdz/datenquellen/Datenquellen_TopPlusOpen.html"
                 target="_blank"
             >
+                Kartendarstellung und Präsentationsgraphiken: © Bundesamt für Kartographie und Geodäsie (2022)
             </a>&nbsp;
             <a
-                href=""
+                href="https://www.stadtlexikon-stuttgart.de/dts/"
                 target="_blank"
             >
+                Tiles © Stadtmessungsamt, LHS Stuttgart
             </a>&nbsp;
             <a
-                href="/datenschutzerklaerung"
+                href="https://www.stuttgart.de/datenschutzerklaerung.php"
                 target="_blank"
             >Datenschutzerklärung</a>&nbsp;
             <a
-                href="/impressum"
+                href="https://www.stuttgart.de/impressum"
                 target="_blank"
             >Impressum</a>
         </span>

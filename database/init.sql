@@ -7,44 +7,57 @@ CREATE TABLE lemma_type (
   id VARCHAR(36) NOT NULL,
   lemma_type VARCHAR(1024) NOT NULL,
   lemma_type_gui_name VARCHAR(1024), 
-  PRIMARY KEY (id));
+  PRIMARY KEY (id)
+);
+COMMENT ON COLUMN lemma_type.lemma_type_gui_name IS 'The name of the lemma type to be shown in the GUI, if null the value of lemma_type is used.';
   
 -- changeset ma:98de8f03-7fd7-47fe-b757-36c31a001c41
 -- lemma definition
 
 CREATE TABLE lemma (
-	id VARCHAR ( 36 ),
-	lemma_type_id VARCHAR ( 36 ),
-	timeline_date_day INT,
-	timeline_date_month INT,
-	timeline_date_year INT,
-	timeline_date_label VARCHAR ( 1024 ),
-	timeline_date_relevance VARCHAR ( 1024 ),
-	timeline_title VARCHAR ( 1024 ),
-	gnd_identifier VARCHAR ( 1024 ),
-	featured BOOLEAN,
-	PRIMARY KEY (id),
-	CONSTRAINT lemma_lemma_type_id_fk FOREIGN KEY (lemma_type_id) REFERENCES lemma_type(id) ON DELETE CASCADE ON UPDATE CASCADE
+  id VARCHAR ( 36 ),
+  lemma_type_id VARCHAR ( 36 ),
+  timeline_date_day INT,
+  timeline_date_month INT,
+  timeline_date_year INT,
+  timeline_date_label VARCHAR ( 1024 ),
+  timeline_date_relevance VARCHAR ( 1024 ),
+  timeline_title VARCHAR ( 1024 ),
+  gnd_identifier VARCHAR ( 1024 ),
+  featured BOOLEAN,
+  PRIMARY KEY (id),
+  CONSTRAINT lemma_lemma_type_id_fk FOREIGN KEY (lemma_type_id) REFERENCES lemma_type(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
+COMMENT ON COLUMN lemma.timeline_date_label IS 'Label for the timeline date.';
+COMMENT ON COLUMN lemma.timeline_date_relevance IS 'Date to set the entry on the timeline.';
+COMMENT ON COLUMN lemma.timeline_title IS 'Title for the timeline entry.';
+COMMENT ON COLUMN lemma.gnd_identifier IS 'GND identifier for the lemma.';
+COMMENT ON COLUMN lemma.featured IS 'Indicates if the lemma is featured. Featured lemmas are displayed on startup on the map.';
 
 -- changeset ma:ab9524d9-b39f-4916-858c-240e60af848f
 -- lemma_version definition
 
 CREATE TABLE lemma_version (
-	id VARCHAR(36),
-	lemma_id VARCHAR(36),
-	version INTEGER,
-	title VARCHAR(1024),
-	abstract VARCHAR(1024),
-	description VARCHAR(32672),
-	lemma_reference VARCHAR(32672),
-	lemma_literature VARCHAR(32672),
-	author_name VARCHAR(1024),
-	last_update DATE,
-	citation VARCHAR(1024),
-	PRIMARY KEY (id),
-	CONSTRAINT lemma_version_lemma_id_fk FOREIGN KEY (lemma_id) REFERENCES lemma(id) ON DELETE CASCADE ON UPDATE CASCADE
+  id VARCHAR(36),
+  lemma_id VARCHAR(36),
+  version INTEGER,
+  title VARCHAR(1024),
+  abstract VARCHAR(1024),
+  description TEXT,
+  lemma_reference VARCHAR(32672),
+  lemma_literature VARCHAR(32672),
+  author_name VARCHAR(1024),
+  last_update DATE,
+  citation VARCHAR(1024),
+  PRIMARY KEY (id),
+  CONSTRAINT lemma_version_lemma_id_fk FOREIGN KEY (lemma_id) REFERENCES lemma(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
+COMMENT ON TABLE lemma_version IS 'Contains the different versions of a lemma. For each lemma there is at least one version. Version 1 is the initial version, version 2 the first update and so on.';
+COMMENT ON COLUMN lemma_version.lemma_reference IS 'Contains the reference text for the lemma. It can contain HTML tags and is displayed in the details view of a lemma.';
+COMMENT ON COLUMN lemma_version.lemma_literature IS 'Contains the literature references for the lemma. It can contain HTML tags and is displayed in the details view of a lemma.';
+COMMENT ON COLUMN lemma_version.author_name IS 'Name of the author of the lemma version.';
+COMMENT ON COLUMN lemma_version.last_update IS 'Date of the last update of the lemma version.';
+COMMENT ON COLUMN lemma_version.citation IS 'Citation for the lemma version.';
 
 -- changeset ma:71fc2af6-9695-493c-9323-9ceb8db57e85
 -- keyword definition
@@ -52,7 +65,9 @@ CREATE TABLE lemma_version (
 CREATE TABLE keyword (
   id VARCHAR(36) NOT NULL,
   keyword VARCHAR(1024) NOT NULL,
-  PRIMARY KEY (id));
+  PRIMARY KEY (id)
+);
+COMMENT ON TABLE keyword IS 'Contains the keywords. Keywords can be assigned to lemmas via the nm_lemma_keyword table.';
 
 CREATE UNIQUE INDEX keyword_unique_idx ON keyword (keyword ASC);
 
@@ -63,8 +78,10 @@ CREATE TABLE nm_lemma_keyword (
   lemma_id VARCHAR(36) NOT NULL,
   keyword_id VARCHAR(36) NOT NULL,
   CONSTRAINT nm_lemma_keyword_lemma_id_fk FOREIGN KEY (lemma_id) REFERENCES lemma (id) ON DELETE CASCADE ON UPDATE CASCADE,
-  CONSTRAINT nm_lemma_keyword_keyword_id_fk FOREIGN KEY (keyword_id) REFERENCES keyword (id) ON DELETE CASCADE ON UPDATE CASCADE
+  CONSTRAINT nm_lemma_keyword_keyword_id_fk FOREIGN KEY (keyword_id) REFERENCES keyword (id) ON DELETE CASCADE ON UPDATE CASCADE,
+  PRIMARY KEY (lemma_id, keyword_id)
 );
+COMMENT ON TABLE nm_lemma_keyword IS 'Contains the many-to-many relationship between lemmas and keywords.';
 
 -- changeset ma:64e5bd46-01a5-4b67-b3b2-71c562953a01
 -- illustration definition
@@ -80,13 +97,28 @@ CREATE TABLE illustration (
   format_x_cm DECIMAL(31,2),
   format_y_cm DECIMAL(31,2),
   licence VARCHAR(1024) NOT NULL,
-  source_base_information VARCHAR(32672),
+  source_base_information TEXT,
   thumbnail_file_name VARCHAR(1024) NOT NULL,
   illustration_file_name VARCHAR(1024) NOT NULL,
-  transcription_text VARCHAR(32672),
+  transcription_text TEXT,
   repro VARCHAR(1024),
   PRIMARY KEY (ID)
 );
+COMMENT ON TABLE illustration IS 'Contains the illustrations.';
+COMMENT ON COLUMN illustration.title IS 'Title of the illustration.';
+COMMENT ON COLUMN illustration.creator IS 'Creator of the illustration.';
+COMMENT ON COLUMN illustration.archive_signature IS 'Archive signature of the illustration. It is used to identify the illustration in the archive and is displayed in the details view of a lemma.';
+COMMENT ON COLUMN illustration.picture_date IS 'Date of the illustration.';
+COMMENT ON COLUMN illustration.picture_description IS 'Description of the illustration.';
+COMMENT ON COLUMN illustration.technique_material IS 'Technique and material used for the illustration.';
+COMMENT ON COLUMN illustration.format_x_cm IS 'Width of the illustration in centimeters.';
+COMMENT ON COLUMN illustration.format_y_cm IS 'Height of the illustration in centimeters.';
+COMMENT ON COLUMN illustration.licence IS 'Licence of the illustration.';
+COMMENT ON COLUMN illustration.source_base_information IS 'Source base information of the illustration.';
+COMMENT ON COLUMN illustration.thumbnail_file_name IS 'File name of the thumbnail image.';
+COMMENT ON COLUMN illustration.illustration_file_name IS 'File name of the illustration image.';
+COMMENT ON COLUMN illustration.transcription_text IS 'Transcription text of the illustration.';
+COMMENT ON COLUMN illustration.repro IS 'Reproduction information of the illustration.';
 
 -- changeset ma:62751f37-446c-497c-a449-69b2c3c87e41
 -- nm_lemma_illustration definition
@@ -94,63 +126,74 @@ CREATE TABLE illustration (
 CREATE TABLE nm_lemma_illustration (
   lemma_id VARCHAR(36) NOT NULL,
   illustration_id VARCHAR(36) NOT NULL,
-  nr INT,
-	PRIMARY KEY (lemma_id, illustration_id),
-	CONSTRAINT nm_lemma_illustration_lemma_id_fk FOREIGN KEY(lemma_id) REFERENCES lemma(id) ON DELETE CASCADE ON UPDATE CASCADE,
-	CONSTRAINT nm_lemma_illustration_illustration_id_fk FOREIGN KEY(illustration_id) REFERENCES illustration(id) ON DELETE CASCADE ON UPDATE CASCADE
+  nr INT NULL,
+  title VARCHAR(1024) NULL,
+  picture_description VARCHAR(1024) NULL,
+  PRIMARY KEY (lemma_id, illustration_id),
+  CONSTRAINT nm_lemma_illustration_lemma_id_nr_unique UNIQUE (lemma_id, nr),
+  CONSTRAINT nm_lemma_illustration_lemma_id_fk FOREIGN KEY(lemma_id) REFERENCES lemma(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT nm_lemma_illustration_illustration_id_fk FOREIGN KEY(illustration_id) REFERENCES illustration(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
+COMMENT ON TABLE nm_lemma_illustration IS 'Contains the many-to-many relationship between lemmas and illustrations.';
+COMMENT ON COLUMN nm_lemma_illustration.title IS 'Text used as image title. If set it takes precedence over illustration.title.';
+COMMENT ON COLUMN nm_lemma_illustration.picture_description IS 'Text used as picture description. Takes precedence over illustration.picture_description.';
 
 -- changeset ma:8b56b3e8-230b-4e77-ab10-bdc8a8281734
 -- location definition
 
 CREATE TABLE location (
-        id VARCHAR (36) NOT NULL,
-        internal_name VARCHAR (1024) NOT NULL,
-        utm_coord_e INT NOT NULL,
-        utm_coord_n INT NOT NULL,
-        illustration_id VARCHAR(36),
-        PRIMARY KEY (id)
-    );
+  id VARCHAR (36) NOT NULL,
+  internal_name VARCHAR (1024) NOT NULL,
+  utm_coord_e INT NOT NULL,
+  utm_coord_n INT NOT NULL,
+  illustration_id VARCHAR(36),
+  PRIMARY KEY (id)
+);
+COMMENT ON TABLE location IS 'Contains the locations. Each location has a unique internal name and UTM coordinates. The internal name is used to identify the location in the network and is displayed in the details view of a lemma. The UTM coordinates are used to display the location on the map. A location can have an associated illustration that is displayed in the details view of a lemma when this location is assigned to the lemma as main location.';
 
 -- changeset ma:effd82a6-aaa6-4d32-ba9f-60ed6f7df09a
 -- nm_lemma_location definition
 
 CREATE TABLE nm_lemma_location (
-	lemma_id VARCHAR(36) NOT NULL,
-	location_id	VARCHAR(36) NOT NULL,
-	location_relevance	VARCHAR(1024) NOT NULL,
-	location_date_label	VARCHAR(1024),
-	nr_of_location INT,
-	main_location	INTEGER, 
-	CONSTRAINT nm_lemma_location_lemma_id_fk FOREIGN KEY(lemma_id) REFERENCES lemma(id) ON DELETE CASCADE ON UPDATE CASCADE,
-	CONSTRAINT nm_lemma_location_location_id_fk FOREIGN KEY(location_id) REFERENCES location(id) ON DELETE CASCADE ON UPDATE CASCADE
+  lemma_id VARCHAR(36) NOT NULL,
+  location_id	VARCHAR(36) NOT NULL,
+  location_relevance	VARCHAR(1024) NOT NULL,
+  location_date_label	VARCHAR(1024) NULL,
+  nr_of_location INT NULL,
+  main_location	INT NULL,
+  CONSTRAINT nm_lemma_location_pk PRIMARY KEY (lemma_id, location_id),
+  CONSTRAINT nm_lemma_location_lemma_id_fk FOREIGN KEY(lemma_id) REFERENCES lemma(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT nm_lemma_location_location_id_fk FOREIGN KEY(location_id) REFERENCES location(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
+COMMENT ON TABLE nm_lemma_location IS 'Contains the many-to-many relationship between lemmas and locations. A lemma can have multiple locations assigned, each with a relevance and an optional date label. The main location is used to determine the location that is displayed on the map for a lemma if there are multiple locations assigned to the lemma. Each lemma must at least have one location assigned, which then needs to be set as main location.';
 
 -- changeset ma:24f47f3a-dc06-4b37-899d-7d6894b8cd12
 -- person definition
 
 CREATE TABLE person (
-	id VARCHAR(36) NOT NULL,
-	lemma_id	VARCHAR(36) NOT NULL,
-	full_name	VARCHAR(1024) NOT NULL,
-	birth_place	VARCHAR(1024),
-	death_place	VARCHAR(1024),
-	birth_date	VARCHAR(1024),
-	death_date	VARCHAR(1024),
-	PRIMARY KEY(id),
-	CONSTRAINT person_lemma_id_fk FOREIGN KEY(lemma_id) REFERENCES lemma(id) ON DELETE CASCADE ON UPDATE CASCADE
+  id VARCHAR(36) NOT NULL,
+  lemma_id	VARCHAR(36) NOT NULL,
+  full_name	VARCHAR(1024) NOT NULL,
+  birth_place	VARCHAR(1024),
+  death_place	VARCHAR(1024),
+  birth_date	VARCHAR(1024),
+  death_date	VARCHAR(1024),
+  PRIMARY KEY(id),
+  CONSTRAINT person_lemma_id_fk FOREIGN KEY(lemma_id) REFERENCES lemma(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
+COMMENT ON TABLE person IS 'Contains the persons. Each person is assigned to a lemma and has a full name, birth and death place and birth and death date.';
 
 -- changeset ma:d1a2b45f-1417-4eae-a4cf-58e31fdee194
 -- place definition
 
 CREATE TABLE place (
-	id	VARCHAR(36) NOT NULL,
-	lemma_id	VARCHAR(36) NOT NULL,
-	ADDRESS	VARCHAR(1024),
-	PRIMARY KEY(id),
-	CONSTRAINT place_lemma_id_fk FOREIGN KEY(lemma_id) REFERENCES lemma(id) ON DELETE CASCADE ON UPDATE CASCADE
+  id	VARCHAR(36) NOT NULL,
+  lemma_id	VARCHAR(36) NOT NULL,
+  ADDRESS	VARCHAR(1024),
+  PRIMARY KEY(id),
+  CONSTRAINT place_lemma_id_fk FOREIGN KEY(lemma_id) REFERENCES lemma(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
+COMMENT ON TABLE place IS 'Contains the places. Each place is assigned to a lemma and has an address.';
 
 -- changeset ma:b44a20b2-a128-4471-9d03-961cab430ecc
 -- map_type definition
@@ -158,7 +201,9 @@ CREATE TABLE place (
 CREATE TABLE map_type (
   id VARCHAR(36) NOT NULL,
   map_type VARCHAR(1024) NOT NULL,
-  PRIMARY KEY (id));
+  PRIMARY KEY (id)
+);
+COMMENT ON TABLE map_type IS 'Contains the types of maps.';
 
 CREATE UNIQUE INDEX map_type_unique_idx ON map_type (map_type ASC);
 
@@ -166,477 +211,473 @@ CREATE UNIQUE INDEX map_type_unique_idx ON map_type (map_type ASC);
 -- map definition
 
 CREATE TABLE map (
-	id VARCHAR ( 36 ),
-	map_type_id VARCHAR ( 36 ),
-	url VARCHAR ( 1024 ),
-	sublayer INT,
-	timeline_date_day INT,
-	timeline_date_month INT,
-	timeline_date_year INT,
-	timeline_date_label VARCHAR ( 1024 ),
-	timeline_title VARCHAR ( 1024 ) DEFAULT (null),
-	map_description VARCHAR ( 32672 ),
-	archive_signature VARCHAR ( 1024 ),
-	angle DECIMAL ( 31 , 2 ),
-	x_min REAL,
-	y_min REAL,
-	x_max REAL,
-	y_max REAL,
-	PRIMARY KEY (id),
-	CONSTRAINT map_map_type_id_fk FOREIGN KEY (map_type_id) REFERENCES map_type(id) ON DELETE CASCADE ON UPDATE CASCADE
+  id VARCHAR ( 36 ),
+  map_type_id VARCHAR ( 36 ),
+  url VARCHAR ( 1024 ),
+  sublayer INT,
+  timeline_date_day INT,
+  timeline_date_month INT,
+  timeline_date_year INT,
+  timeline_date_label VARCHAR ( 1024 ),
+  timeline_title VARCHAR ( 1024 ) DEFAULT (null),
+  map_description VARCHAR ( 32672 ),
+  archive_signature VARCHAR ( 1024 ),
+  angle DECIMAL ( 31 , 2 ),
+  x_min REAL,
+  y_min REAL,
+  x_max REAL,
+  y_max REAL,
+  layer VARCHAR NULL,
+  service VARCHAR(255) NULL,
+  PRIMARY KEY (id),
+  CONSTRAINT map_map_type_id_fk FOREIGN KEY (map_type_id) REFERENCES map_type(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
+COMMENT ON TABLE "map" IS 'Contains the maps. Each map has a type, a URL, an optional sublayer for WMS maps, timeline information, a description, an archive signature, angle and bounding box coordinates. The layer column contains the name of one or multiple layers for WMS maps. Multiple layers are separated by comma without any space around. The service column contains the provisioning service for the map.';
+COMMENT ON COLUMN "map".layer IS 'Contains the name of one or multiple layers for wms map, multiple layers are separated by comma without any space around.';
+COMMENT ON COLUMN "map".service IS 'Provisioning service for the map.';
 
 -- changeset ma:44471935-018c-4fff-8741-f66e8772047a
 -- street_map definition
 
 CREATE TABLE street_map (
-	id	VARCHAR(36),
-	street_id	VARCHAR(36) NOT NULL UNIQUE,
-	map_id	VARCHAR(36) NOT NULL,
-	CONSTRAINT street_map_map_id_fk FOREIGN KEY(map_id) REFERENCES map(id) ON DELETE CASCADE ON UPDATE CASCADE,
-	PRIMARY KEY(id)
+  id	VARCHAR(36),
+  street_id	VARCHAR(36) NOT NULL UNIQUE,
+  map_id	VARCHAR(36) NOT NULL,
+  CONSTRAINT street_map_map_id_fk FOREIGN KEY(map_id) REFERENCES map(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  PRIMARY KEY(id)
 );
+COMMENT ON TABLE street_map IS 'Contains the relations between streets and maps. Each street can be assigned to a map. So, when a historic street is found and needs to be displayed on a map, the corresponding map is opened.';
 
 -- changeset ma:381746df-e8c6-411e-95df-75bbd788cd3f
 -- search_group definition
 
 CREATE TABLE search_group (
-	id	VARCHAR(36),
-	name VARCHAR(255) NOT NULL,
-	PRIMARY KEY(id)
+  id	VARCHAR(36),
+  name VARCHAR(255) NOT NULL,
+  PRIMARY KEY(id)
 );
+COMMENT ON TABLE search_group IS 'Contains the search groups. Each search group has a unique name. Search groups are used for the different search result categories.';
 
 -- changeset ma:99d0002b-e22e-457c-87d6-5321a2d8a12e
 -- SEARCH_COLUMN definition
 
 CREATE TABLE search_column (
-	id	VARCHAR(36) NOT NULL,
-	search_group_id	VARCHAR(36) NOT NULL,
-	"column" VARCHAR(255) NOT NULL,
-	quantifier	INTEGER NOT NULL,
-	CONSTRAINT search_column_search_group_id_fk FOREIGN KEY(search_group_id) REFERENCES search_group(id) ON DELETE CASCADE ON UPDATE CASCADE,
-	PRIMARY KEY(id)
+  id	VARCHAR(36) NOT NULL,
+  search_group_id	VARCHAR(36) NOT NULL,
+  "column" VARCHAR(255) NOT NULL,
+  quantifier	INTEGER NOT NULL,
+  CONSTRAINT search_column_search_group_id_fk FOREIGN KEY(search_group_id) REFERENCES search_group(id) ON DELETE CASCADE ON UPDATE CASCADE,
+  PRIMARY KEY(id)
 );
+COMMENT ON TABLE search_column IS 'Contains the search columns. Each search column is assigned to a search group and has a column name and a quantifier. It defines in which search group a column has which relevance for the search result ranking.';
 
 -- changeset ma:08b4e65e-6aa4-4871-b3ed-e20cb9137525
 -- spelling definition
 
-CREATE TABLE spelling
-(
-	id VARCHAR(36) NOT NULL,
-	primary_spelling VARCHAR(1024) NOT NULL,
-	alternative_spelling VARCHAR(1024) NOT NULL UNIQUE,
-	PRIMARY KEY(id)
+CREATE TABLE spelling (
+  id VARCHAR(36) NOT NULL,
+  primary_spelling VARCHAR(1024) NOT NULL,
+  alternative_spelling VARCHAR(1024) NOT NULL UNIQUE,
+  PRIMARY KEY(id)
 );
+COMMENT ON TABLE spelling IS 'Contains the different spellings for search terms. Each entry has a primary spelling and an alternative spelling. If a user searches for a term using an alternative spelling, a hint is provided with a link to search with the primary spelling.';
 
 -- changeset ma:34e475f3-4b1d-4e81-be21-8856507e0cee
 -- start_message definition
 
 CREATE TABLE start_message (
-	id	VARCHAR(36),
-	title	VARCHAR(1024) NOT NULL,
-	"description"	TEXT NOT NULL,
-	"begin"	DATE NOT NULL,
-	"end"	DATE NOT NULL,
-	PRIMARY KEY(id)
+  id	VARCHAR(36),
+  title	VARCHAR(1024) NOT NULL,
+  "description"	TEXT NOT NULL,
+  "begin"	DATE NOT NULL,
+  "end"	DATE NOT NULL,
+  PRIMARY KEY(id)
 );
+COMMENT ON TABLE start_message IS 'Contains the start messages. Each start message has a title, description, begin date, and end date. It can be used to display time-limited messages on the start page of the application.';
 
 -- changeset ma:1c093b05-4c28-464e-9719-b30d42af83c6
 -- view_lemma source
 
 CREATE VIEW view_lemma as
 select
-	lemma.id
-	, lemma.lemma_type_id
-	, lemma_version.version
-	, lemma_version.title
-	, lemma_version.abstract
-	, lemma_version.description
-	, lemma_version.lemma_reference
-	, lemma_version.lemma_literature
-	, lemma.timeline_date_day
-	, lemma.timeline_date_month
-	, lemma.timeline_date_year
-	, lemma.timeline_date_label
-	, lemma.timeline_date_relevance
-	, lemma.timeline_title
-	, lemma_version.author_name
-	, lemma.gnd_identifier
-	, lemma.featured
-	, lemma_version.last_update
-	, lemma_version.citation
+  lemma.id
+  , lemma.lemma_type_id
+  , lemma_version.version
+  , lemma_version.title
+  , lemma_version.abstract
+  , lemma_version.description
+  , lemma_version.lemma_reference
+  , lemma_version.lemma_literature
+  , lemma.timeline_date_day
+  , lemma.timeline_date_month
+  , lemma.timeline_date_year
+  , lemma.timeline_date_label
+  , lemma.timeline_date_relevance
+  , lemma.timeline_title
+  , lemma_version.author_name
+  , lemma.gnd_identifier
+  , lemma.featured
+  , lemma_version.last_update
+  , lemma_version.citation
 from
-	lemma
+  lemma
 inner join lemma_version on
-	lemma.id = lemma_version.lemma_id;
+  lemma.id = lemma_version.lemma_id;
 
 -- changeset ma:d833f60e-5ad2-41c7-9198-988bba7ebb95
 -- view_group2_search source
 
 CREATE VIEW view_group2_search as
 select
-	lem.id
-	, lemma_type
-	, lemma_type_gui_name
-	, max(lemma_version.version) as version
-	, lemma_version.title
-	, lemma_version.abstract
-	, lemma_version.description
-	, (
-	select
-		string_agg(keyword, ',') as keywords
-	from
-		lemma
-	inner join nm_lemma_keyword on
-		lemma.id = nm_lemma_keyword.lemma_id
-	inner join keyword on
-		nm_lemma_keyword.keyword_id = keyword.id
-	where
-		lemma.id = lem.id) as all_keywords
-	, (
-	select
-		string_agg(distinct location_relevance, ',') as location_relevances
-	from
-		lemma
-	inner join nm_lemma_location on
-		lemma.id = nm_lemma_location.lemma_id
-	inner join location on
-		nm_lemma_location.location_id = location.id
-	where
-		lemma.id = lem.id) as all_location_relevances
-	, lemma_version.author_name
-	, lem.gnd_identifier
-	, lemma_version.lemma_literature
-	, lemma_version.lemma_reference
-	, lem.timeline_title
-	, lem.timeline_date_day
-	, lem.timeline_date_month
-	, lem.timeline_date_year
-	, lem.timeline_date_label
-	, lem.timeline_date_relevance
-	, utm_coord_e
-	, utm_coord_n
-	, illustration.thumbnail_file_name
-	, location_relevance
-	, location_date_label
-	, (
-	select
-		COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(title)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(abstract)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(description)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(string_agg(DISTINCT keyword, ','))
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(string_agg(DISTINCT location_relevance, ','))
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(author_name)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(gnd_identifier)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(lemma_literature)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(lemma_reference)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '')
-	from
-		lemma
-	inner join lemma_version on
-		lemma.id = lemma_version.lemma_id
-		and lemma_version.version = (select max(lemma_version.version) from lemma_version where lemma_version.lemma_id = lemma.id)
-	left join nm_lemma_keyword on
-		lemma.id = nm_lemma_keyword.lemma_id
-	left join keyword on
-		nm_lemma_keyword.keyword_id = keyword.id
-	left join nm_lemma_location on
-		lemma.id = nm_lemma_location.lemma_id
-	left join location on
-		nm_lemma_location.location_id = location.id
-	where
-		lemma.id = lem.id
-	group by 
-		title, abstract, description, author_name, gnd_identifier, lemma_literature, lemma_reference) as all_in_one
+  lem.id
+  , lemma_type
+  , lemma_type_gui_name
+  , max(lemma_version.version) as version
+  , lemma_version.title
+  , lemma_version.abstract
+  , lemma_version.description
+  , (
+  select
+    string_agg(keyword, ',') as keywords
+  from
+    lemma
+  inner join nm_lemma_keyword on
+    lemma.id = nm_lemma_keyword.lemma_id
+  inner join keyword on
+    nm_lemma_keyword.keyword_id = keyword.id
+  where
+    lemma.id = lem.id) as all_keywords
+  , (
+  select
+    string_agg(distinct location_relevance, ',') as location_relevances
+  from
+    lemma
+  inner join nm_lemma_location on
+    lemma.id = nm_lemma_location.lemma_id
+  inner join location on
+    nm_lemma_location.location_id = location.id
+  where
+    lemma.id = lem.id) as all_location_relevances
+  , lemma_version.author_name
+  , lem.gnd_identifier
+  , lemma_version.lemma_literature
+  , lemma_version.lemma_reference
+  , lem.timeline_title
+  , lem.timeline_date_day
+  , lem.timeline_date_month
+  , lem.timeline_date_year
+  , lem.timeline_date_label
+  , lem.timeline_date_relevance
+  , utm_coord_e
+  , utm_coord_n
+  , illustration.thumbnail_file_name
+  , location_relevance
+  , location_date_label
+  , (
+  select
+    COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(title)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(abstract)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(description)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(string_agg(DISTINCT keyword, ','))
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(string_agg(DISTINCT location_relevance, ','))
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(author_name)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(gnd_identifier)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(lemma_literature)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || COALESCE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(LOWER(lemma_reference)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '')
+  from
+    lemma
+  inner join lemma_version on
+    lemma.id = lemma_version.lemma_id
+    and lemma_version.version = (select max(lemma_version.version) from lemma_version where lemma_version.lemma_id = lemma.id)
+  left join nm_lemma_keyword on
+    lemma.id = nm_lemma_keyword.lemma_id
+  left join keyword on
+    nm_lemma_keyword.keyword_id = keyword.id
+  left join nm_lemma_location on
+    lemma.id = nm_lemma_location.lemma_id
+  left join location on
+    nm_lemma_location.location_id = location.id
+  where
+    lemma.id = lem.id
+  group by 
+    title, abstract, description, author_name, gnd_identifier, lemma_literature, lemma_reference) as all_in_one
 from
-	lemma lem
+  lemma lem
 inner join lemma_version on
-	lem.id = lemma_version.lemma_id
-	and lemma_version.version = (select max(lemma_version.version) from lemma_version where lemma_version.lemma_id = lem.id)
+  lem.id = lemma_version.lemma_id
+  and lemma_version.version = (select max(lemma_version.version) from lemma_version where lemma_version.lemma_id = lem.id)
 inner join lemma_type on
-	lem.lemma_type_id = lemma_type.id
+  lem.lemma_type_id = lemma_type.id
 left join nm_lemma_location on
-	lem.id = nm_lemma_location.lemma_id
-	and nm_lemma_location.main_location = 1
+  lem.id = nm_lemma_location.lemma_id
+  and nm_lemma_location.main_location = 1
 left join location on
-	nm_lemma_location.location_id = location.id
+  nm_lemma_location.location_id = location.id
 left join nm_lemma_illustration nli on
-	lem.id = nli.lemma_id
-	and nli.nr = 1
+  lem.id = nli.lemma_id
+  and nli.nr = 1
 left join illustration on
-	nli.illustration_id = illustration.id
+  nli.illustration_id = illustration.id
 group by
-	lem.id,
-	lemma_type,
-	lemma_type_gui_name,
-	lemma_version.title,
-	lemma_version.abstract,
-	lemma_version.description,
-	lemma_version.author_name,
-	lem.gnd_identifier,
-	lemma_version.lemma_literature,
-	lemma_version.lemma_reference,
-	lem.timeline_title,
-	lem.timeline_date_day,
-	lem.timeline_date_month,
-	lem.timeline_date_year,
-	lem.timeline_date_label,
-	lem.timeline_date_relevance,
-	utm_coord_e,
-	utm_coord_n,
-	illustration.thumbnail_file_name,
-	location_relevance,
-	location_date_label;
+  lem.id,
+  lemma_type,
+  lemma_type_gui_name,
+  lemma_version.title,
+  lemma_version.abstract,
+  lemma_version.description,
+  lemma_version.author_name,
+  lem.gnd_identifier,
+  lemma_version.lemma_literature,
+  lemma_version.lemma_reference,
+  lem.timeline_title,
+  lem.timeline_date_day,
+  lem.timeline_date_month,
+  lem.timeline_date_year,
+  lem.timeline_date_label,
+  lem.timeline_date_relevance,
+  utm_coord_e,
+  utm_coord_n,
+  illustration.thumbnail_file_name,
+  location_relevance,
+  location_date_label
+order by lem.timeline_title;
 
-	-- changeset ma:ccc5f141-c112-48b2-8c63-d0fe48c7d591
-	-- view_group_illustration_2search source
+-- changeset ma:ccc5f141-c112-48b2-8c63-d0fe48c7d591
+-- view_group_illustration_2search source
 
 CREATE VIEW view_group_illustration_2search as
 SELECT
-	ill.id
-	, nli.lemma_id
-	, lemma_type
-	, nr
-	, ill.title
-	, timeline_title
-	, lv.title AS lemma_title
-	, thumbnail_file_name
-	, creator
-	, picture_description
-	, licence
-	, technique_material
-	, archive_signature
-	, transcription_text
-	, (
-	SELECT
-		coalesce(replace(replace(replace(replace(replace(replace(replace(lower(archive_signature)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(creator)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(licence)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(picture_description)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(technique_material)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(title)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(transcription_text)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '')
-	FROM
-		illustration
-	WHERE
-		ill.id = illustration.id) as all_in_one
+  ill.id
+  , nli.lemma_id
+  , lemma_type
+  , nr
+  , COALESCE(nli.title, ill.title) AS title
+  , timeline_title
+  , lv.title AS lemma_title
+  , thumbnail_file_name
+  , creator
+  , COALESCE(nli.picture_description, ill.picture_description) AS picture_description
+  , licence
+  , technique_material
+  , archive_signature
+  , transcription_text
+  , (
+  SELECT
+    coalesce(replace(replace(replace(replace(replace(replace(replace(lower(archive_signature)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(creator)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(licence)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(picture_description)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(technique_material)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(title)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(transcription_text)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '')
+  FROM
+    illustration
+  WHERE
+    ill.id = illustration.id) as all_in_one
 FROM
-	illustration ill
+  illustration ill
 LEFT JOIN nm_lemma_illustration nli ON
-	ill.id = nli.illustration_id
+  ill.id = nli.illustration_id
 LEFT JOIN lemma ON
-	nli.lemma_id = lemma.id
+  nli.lemma_id = lemma.id
 LEFT JOIN lemma_type ON
-	lemma.lemma_type_id = lemma_type.id
+  lemma.lemma_type_id = lemma_type.id
 LEFT JOIN lemma_version lv ON
-	nli.lemma_id = lv.lemma_id
-	AND lv.version = (
-	SELECT
-		MAX(lv2.version)
-	FROM
-		lemma_version lv2
-	WHERE
-		lv2.lemma_id = nli.lemma_id);
+  nli.lemma_id = lv.lemma_id
+  AND lv.version = (
+  SELECT
+    MAX(lv2.version)
+  FROM
+    lemma_version lv2
+  WHERE
+    lv2.lemma_id = nli.lemma_id);
 
 -- changeset ma:5e7b259c-346f-468b-88e6-1c3f41918efa
 -- view_group_bionet_2search source
 
 CREATE VIEW view_group_bionet_2search as
 SELECT
-	loc.id
-	, nm_lemma_location.lemma_id
-	, internal_name
-	, location_relevance
-	, title
-	, timeline_title
-	, lemma_type
-	, (
-	SELECT
-		coalesce(replace(replace(replace(replace(replace(replace(replace(lower(internal_name)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(location_relevance)
-		, '&#xc4;', 'ä')
-		, '&#xe4;', 'ä')
-		, '&#xd6;', 'ö')
-		, '&#xf6;', 'ö')
-		, '&#xdc;', 'ü')
-		, '&#xfc;', 'ü')
-		, '&#x2013;', '-')
-		, '')
-	FROM
-		location
-	WHERE
-		loc.id = location.id) as all_in_one
+  loc.id
+  , nm_lemma_location.lemma_id
+  , internal_name
+  , location_relevance
+  , title
+  , timeline_title
+  , lemma_type
+  , (
+  SELECT
+    coalesce(replace(replace(replace(replace(replace(replace(replace(lower(internal_name)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(lower(location_relevance)
+    , '&#xc4;', 'ä')
+    , '&#xe4;', 'ä')
+    , '&#xd6;', 'ö')
+    , '&#xf6;', 'ö')
+    , '&#xdc;', 'ü')
+    , '&#xfc;', 'ü')
+    , '&#x2013;', '-')
+    , '')
+  FROM
+    location
+  WHERE
+    loc.id = location.id) as all_in_one
 FROM
-	LOCATION loc
-LEFT JOIN nm_lemma_location ON
-	loc.id = nm_lemma_location.location_id
+  LOCATION loc
+INNER JOIN nm_lemma_location ON
+  loc.id = nm_lemma_location.location_id
 LEFT JOIN lemma ON
-	nm_lemma_location.lemma_id = lemma.id
+  nm_lemma_location.lemma_id = lemma.id
 LEFT JOIN lemma_version lv ON
-	nm_lemma_location.lemma_id = lv.lemma_id
-	AND lv.version = (
-	SELECT
-		max(lv2.version)
-	FROM
-		lemma_version lv2
-	WHERE
-		lv2.lemma_id = nm_lemma_location.lemma_id)
+  nm_lemma_location.lemma_id = lv.lemma_id
+  AND lv.version = (
+  SELECT
+    max(lv2.version)
+  FROM
+    lemma_version lv2
+  WHERE
+    lv2.lemma_id = nm_lemma_location.lemma_id)
 LEFT JOIN lemma_type ON
-	lemma.lemma_type_id = lemma_type.id;
+  lemma.lemma_type_id = lemma_type.id;
 
--- changeset ma:91c729e4-d186-4210-af1f-7ebeb401b668
-ALTER TABLE nm_lemma_illustration ADD CONSTRAINT nm_lemma_illustration_lemma_id_nr_unique UNIQUE (lemma_id,nr);
+-- changeset ma:e5a9ed51-14aa-4140-abad-a102a431a3a4
+-- view_group_map_2search source
 
--- changeset ma:0333900a-a976-4bc6-bf23-ee1cdc1ddbd3
-ALTER TABLE "map" ADD layer varchar NULL;
-COMMENT ON COLUMN "map".layer IS 'Contains the name of one or multiple layers for wms map, multiple layers are separated by comma without any space around.';
-
--- changeset ma:7147ea25-27aa-44b2-a586-bef7e51fac6e
-ALTER TABLE "map" ADD service varchar(255) NULL;
-COMMENT ON COLUMN "map".service IS 'Provisioning service for the map.';
-
--- changeset ma:1149af41-8c57-447c-acc1-7e9a1c31b8e5
-ALTER TABLE lemma ADD link varchar(255) NULL;
-COMMENT ON COLUMN lemma.link IS 'textual link to lemma';
-ALTER TABLE lemma ADD CONSTRAINT lemma_link_unique UNIQUE (link);
-
--- changeset ma:84104c0e-fd01-4b98-84fc-d0308c8a714b
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE TABLE lemma_sync (
-	id uuid DEFAULT uuid_generate_v4() NOT NULL,
-	lemma_version_id varchar(36) NOT NULL,
-	audio_data bytea NOT NULL,
-	file_format varchar(10) DEFAULT 'wav' NOT NULL,
-	created_at timestamptz DEFAULT CURRENT_TIMESTAMP NOT NULL,
-	CONSTRAINT lemma_sync_pk PRIMARY KEY (id),
-	CONSTRAINT lemma_sync_lemma_version_fk FOREIGN KEY (lemma_version_id) REFERENCES lemma_version(id) ON DELETE CASCADE ON UPDATE CASCADE
-);
-COMMENT ON TABLE lemma_sync IS 'Synchronisation files for lemmas.';
-COMMENT ON COLUMN lemma_sync.created_at IS 'Creation time of entry.';
-
-
-
-
+create view view_group_map_2search as
+select
+  id
+  , archive_signature
+  , map_description
+  , timeline_title
+  , timeline_date_label
+  , (
+  select
+    coalesce(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(lower(archive_signature), 'Ä', 'ä'), 'Ö', 'ö'), 'Ü', 'ü'), '&#xc4;', 'ä'), '&#xe4;', 'ä'), '&#xd6;', 'ö'), '&#xf6;', 'ö'), '&#xdc;', 'ü'), '&#xfc;', 'ü'), '&#x2013;', '-'), '') || ' ' || coalesce(replace(replace(replace(replace(replace(replace(replace(replace(replace(replace(lower(map_description), 'Ä', 'ä'), 'Ö', 'ö'), 'Ü', 'ü'), '&#xc4;', 'ä'), '&#xe4;', 'ä'), '&#xd6;', 'ö'), '&#xf6;', 'ö'), '&#xdc;', 'ü'), '&#xfc;', 'ü'), '&#x2013;', '-'), '')
+  from
+    map
+  where
+    m.id = map.id) as all_in_one
+from
+  map m;
 
 INSERT INTO lemma_type (id,lemma_type,lemma_type_gui_name) VALUES
 	 ('9588d70d-f658-423b-8699-4fe863e9797a','PERSON','Personen'),
@@ -683,10 +724,10 @@ INSERT INTO start_message(id, title, "description", "begin", "end") VALUES
 
 <a href="https://www.spicetech.de" target="_blank">Beispiellink</a>', '2023-01-01', '2099-12-31');
 
-INSERT INTO lemma (id,lemma_type_id,timeline_date_day,timeline_date_month,timeline_date_year,timeline_date_label,timeline_date_relevance,timeline_title,gnd_identifier,featured,link) VALUES
-	 ('3b8772f9-61b3-49b9-b7c1-920e3c5e6ea6','a4793cad-55da-4489-b263-c64ff806a262',15,5,2005,'5. Mai 2005','Das Stadtarchiv der Stadt Stuttgart','Stadtarchiv',NULL,NULL,NULL),
-	 ('3ed9c3ef-9f4b-4d67-a38d-b745a665b9e7','a4793cad-55da-4489-b263-c64ff806a262',11,1,2011,'1. Januar 2011','Das Stadtmessungsamt der Stadt Stuttgart','Stadtmessungsamt',NULL,NULL,NULL),
-	 ('d9ea60eb-856c-45c5-be3d-92816ac307fd','aa262d9d-5c16-480b-8126-704752bb1cc5',15,10,2016,'15. Oktober 2016','Die Entwickler des Stadtlexikons','Spicetech',NULL,NULL,NULL);
+INSERT INTO lemma (id,lemma_type_id,timeline_date_day,timeline_date_month,timeline_date_year,timeline_date_label,timeline_date_relevance,timeline_title,gnd_identifier,featured) VALUES
+	 ('3b8772f9-61b3-49b9-b7c1-920e3c5e6ea6','a4793cad-55da-4489-b263-c64ff806a262',15,5,2005,'5. Mai 2005','Das Stadtarchiv der Stadt Stuttgart','Stadtarchiv',NULL,NULL),
+	 ('3ed9c3ef-9f4b-4d67-a38d-b745a665b9e7','a4793cad-55da-4489-b263-c64ff806a262',11,1,2011,'1. Januar 2011','Das Stadtmessungsamt der Stadt Stuttgart','Stadtmessungsamt',NULL,NULL),
+	 ('d9ea60eb-856c-45c5-be3d-92816ac307fd','aa262d9d-5c16-480b-8126-704752bb1cc5',15,10,2016,'15. Oktober 2016','Die Entwickler des Stadtlexikons','Spicetech',NULL,NULL);
 
 INSERT INTO lemma_version (id,lemma_id,"version",title,abstract,description,lemma_reference,lemma_literature,author_name,last_update,citation) VALUES
 	 ('067847bf-4fd1-48ab-a421-fb2ae6336f56','3b8772f9-61b3-49b9-b7c1-920e3c5e6ea6',1,'Das Stadtarchiv Stuttgart: Hüterin der Stadtgeschichte','Das Stadtarchiv Stuttgart ist das zentrale Gedächtnis der Landeshauptstadt und dient als Kompetenzzentrum für die Stadtgeschichte. Es bewahrt wertvolle historische Quellen auf, sichert Bürgerrechte und unterstützt eine transparente Verwaltung. Mit umfangreichen Beständen, einem breiten Veranstaltungsangebot und dem innovativen Stadtlexikon richtet sich das Archiv gleichermaßen an Wissenschaft, Öffentlichkeit und Verwaltung.','Das Stadtarchiv Stuttgart übernimmt eine bedeutende Rolle als Bewahrerin der Geschichte der Landeshauptstadt. Es versteht sich nicht nur als Archiv im klassischen Sinne, sondern als aktives Bürgerarchiv, das authentische Zeugnisse vergangener Zeiten sichert und zugänglich macht. Dazu gehören Akten, Amtsbücher, Fotografien, Karten, Filme, Gemälde und Grafiken sowohl amtlicher als auch privater Herkunft.

@@ -1,11 +1,11 @@
 import illustration from "./illustration";
-import lemmata from "./lemmata";
+import lemma from "./lemma";
 import maps from './maps';
 import searchQuery from './searchQuery';
 import startMessage from "./startMessage";
 
 export default {
-    lemmata,
+    lemma,
     maps,
     searchQuery,
     startMessage,

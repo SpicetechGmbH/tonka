@@ -1,0 +1,61 @@
+/* semantic color variables for this project */
+:root {
+  --dts-color-bg: rgba(255, 255, 255, 0.4);
+  --dts-color-bg2: rgba(255, 255, 255, 0.8);
+  --dts-color-fulltrans-bg: rgba(255, 255, 255, 0);
+
+  --dts-color-accent: rgba(232, 199, 82, 0.8);
+  --dts-color-foxbrush: rgba(201, 88, 68, 0.8);
+  --dts-color-newwarm: rgba(182, 125, 83, 1);
+
+  --dts-panel-max-width: 48%;
+}
+
+.font-istok-web {
+  font-family: "Istok Web", serif;
+}
+
+.font-istok-web-bold {
+  font-family: "Istok Web", serif;
+  font-weight: bold;
+}
+
+.font-lusitana {
+  font-family: "Lusitana", serif;
+  font-weight: bold;
+}
+
+.dts-text {
+  hyphens: auto;
+}
+
+.zero-font-size {
+  font-size: 0pt;
+}
+
+.six-font-size {
+  font-size: 6pt;
+}
+
+.eight-font-size {
+  font-size: 8pt;
+}
+
+.ol-control button {
+  color: whitesmoke;
+  background-color: rgba(var(--v-theme-primary), 0.8);
+}
+
+.cursor-pointer {
+  cursor: pointer;
+}
+
+@media only screen and (max-width: 780px) {
+  :root {
+    --dts-panel-max-width: 100%;
+  }
+}
+
+:focus {
+  outline: 2px solid rgba(var(--v-theme-font-hover)) !important;
+}

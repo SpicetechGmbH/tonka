@@ -1,101 +1,149 @@
 import { defineStore } from 'pinia';
+import { computed, ref, unref } from 'vue';
 import services from '../services';
+import { useLemmaStore } from './lemmaStore';
 
 function filterDataByLemmaType(data, lemmaType) {
   return data.filter(item => item.lemma_type === lemmaType);
 };
 
-export default defineStore('search', {
-  state: () => ({
-    alleArtikel: [],
-    activeFilter: '',
-    activeQueryFilter: '',
-    queryResult: {
-      orte: [],
-      artikel: [],
-      illustration: []
-    },
-    showResults: false,
-  }),
-  getters: {
-    filteredData: state => {
-      return {
-        person: filterDataByLemmaType(state.alleArtikel, 'PERSON'),
-        orte: filterDataByLemmaType(state.alleArtikel, 'PLACE'),
-        institution: filterDataByLemmaType(state.alleArtikel, 'INSTITUTION'),
-        event: filterDataByLemmaType(state.alleArtikel, 'EVENT'),
-        topic: filterDataByLemmaType(state.alleArtikel, 'TOPIC'),
-      };
-    },
+export const useSearchQueryStore = defineStore('search', () => {
+  const lemmaStore = useLemmaStore();
 
-    getAlleArtikelFilterDataByLemmaType: state => {
-      if (state.activeFilter === '') {
-        return state.alleArtikel
-      }
-      return state.filteredData[state.activeFilter]
-    },
+  // State
+  const query = ref('');
+  const alleArtikel = ref([]);
+  const activeQueryFilter = ref('');
+  const queryResult = ref({
+    artikel: [],
+    illustration: [],
+    orte: [],
+    map: [],
+    street: [],
+    streetCurrent: [],
+    streetHistoric: []
+  });
+  const alternativeQuery = ref(null);
+  const showResults = ref(false);
 
-    filteredDataByQuery: state => {
-      return {
-        person: filterDataByLemmaType(state.queryResult.artikel, 'PERSON'),
-        orte: filterDataByLemmaType(state.queryResult.artikel, 'PLACE'),
-        institution: filterDataByLemmaType(state.queryResult.artikel, 'INSTITUTION'),
-        event: filterDataByLemmaType(state.queryResult.artikel, 'EVENT'),
-        topic: filterDataByLemmaType(state.queryResult.artikel, 'TOPIC'),
-      };
-    },
+  // Getters
+  const filteredDataByQuery = computed(() => {
+    const types = unref(lemmaStore.lemmaTypes) || [];
+    const map = {};
 
-    getQueryArtikelsFilterDataByLemmaType: state => {
-      if (state.activeQueryFilter === '') {
-        return state.queryResult.artikel
-      }
-      return state.filteredDataByQuery[state.activeQueryFilter]
-    },
-  },
-  actions: {
-    fetchAlleArtikel() {
-      return new Promise((resolve, reject) => {
-        services.searchQuery.getAllQueryResult()
-          .then((response) => {
-            this.alleArtikel = response.data;
-            resolve(response.data);
-          })
-          .catch((error) => reject(error));
-      });
-    },
+    types.forEach(type => {
+      const key = type.lemma_type.toLowerCase();
+      map[key] = filterDataByLemmaType(queryResult.value.artikel, type.lemma_type);
+    });
 
-    fetchIllustrationArtikels(queryStringIllustration) {
-      return new Promise((resolve, reject) => {
-        services.searchQuery.getQueryIllustrationResult(queryStringIllustration)
-          .then((response) => {
-            this.queryResult.illustration = response.data;
-            resolve(response.data);
-          })
-          .catch((error) => reject(error));
-      });
-    },
+    return map;
+  });
 
-    fetchOrteArtikels(queryStringOrte) {
-      return new Promise((resolve, reject) => {
-        services.searchQuery.getQueryOrteResult(queryStringOrte)
-          .then((response) => {
-            this.queryResult.orte = response.data;
-            resolve(response.data);
-          })
-          .catch((error) => reject(error));
-      });
-    },
+  const getQueryArtikelsFilterDataByLemmaType = computed(() => {
+    if (activeQueryFilter.value === '') {
+      return queryResult.value.artikel
+    }
+    return filteredDataByQuery.value[activeQueryFilter.value];
+  });
 
-    fetchQueryArtikels(queryStringArtikel) {
-      return new Promise((resolve, reject) => {
-        services.searchQuery.getQueryArtikelResult(queryStringArtikel)
-          .then((response) => {
-            this.queryResult.artikel = response.data.queryData;
-            resolve(response.data);
-          })
-          .catch((error) => reject(error));
-      });
-    },
-
+  // Actions
+  async function initAlleArtikel() {
+    try {
+      const response = await services.searchQuery.getAllLemmaListResult();
+      alleArtikel.value = response.data;
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching all articles:', error);
+      throw error;
+    }
   }
-})
+
+  async function fetchFeaturedArticles() {
+    try {
+      const response = await services.lemma.getAllLemmata();
+      queryResult.value.artikel = response.data.allLemmata.filter(lemma => lemma.featured);
+    } catch (error) {
+      console.error('Error fetching featured articles:', error);
+    }
+  }
+
+  function fetchAlleArtikel() {
+    queryResult.value.artikel = alleArtikel.value;
+    queryResult.value.illustration = [];
+    queryResult.value.orte = [];
+    queryResult.value.map = [];
+    queryResult.value.street = [];
+    queryResult.value.streetCurrent = [];
+    queryResult.value.streetHistoric = [];
+  }
+
+  async function search() {
+    activeQueryFilter.value = '';
+    return Promise.all([
+      fetchArtikel(query.value),
+      fetchIllustration(query.value),
+      fetchOrte(query.value),
+      fetchMaps(query.value)
+    ]);
+  }
+
+  async function fetchArtikel(queryString) {
+    try {
+      const response = await services.searchQuery.queryArticles(queryString);
+      alternativeQuery.value = response.data.alternativeQuery || null;
+      queryResult.value.artikel = response.data.queryData;
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async function fetchIllustration(queryString) {
+    try {
+      const response = await services.searchQuery.queryIllustrations(queryString);
+      queryResult.value.illustration = response.data;
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async function fetchOrte(queryString) {
+    try {
+      const response = await services.searchQuery.queryNetPlaces(queryString);
+      queryResult.value.orte = response.data;
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async function fetchMaps(queryString) {
+    try {
+      const response = await services.searchQuery.queryMaps(queryString);
+      queryResult.value.map = response.data;
+      return response.data;
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  return {
+    query,
+    alleArtikel,
+    activeQueryFilter,
+    queryResult,
+    alternativeQuery,
+    showResults,
+    filteredDataByQuery,
+    getQueryArtikelsFilterDataByLemmaType,
+    initAlleArtikel,
+    fetchFeaturedArticles,
+    fetchAlleArtikel,
+    search,
+    fetchArtikel,
+    fetchIllustration,
+    fetchOrte,
+    fetchMaps,
+  };
+});

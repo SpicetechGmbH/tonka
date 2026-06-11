@@ -1,20 +1,32 @@
 <template>
   <v-container class="d-flex justify-center align-center">
     <v-card class="about-help mx-auto">
+      <template v-slot:title>
+        <a
+          href="https://www.spicetech.de/"
+          class="about-help__title"
+        >
+          <span> Zur Spicetech-Webseite </span>
+        </a>
+      </template>
       <template v-slot:prepend>
-        <span class="about-help__title-left">
-          Wir über uns
-        </span>
+        <span class="about-help__title-left"> Wir über uns </span>
       </template>
       <template #append>
-        <a
-          href="[eigene_url_eintragen]"
-          class="about-help__title-right"
+        <ThemeSwitchButton
+          color="#e0e0e0"
+          variant="icon"
         >
-          <span>
-            Zum Lexikon
-          </span>
-        </a>
+          <v-tooltip
+            activator="parent"
+            location="bottom"
+          >Farbschema wechseln</v-tooltip>
+        </ThemeSwitchButton>
+        <v-btn
+          class="about-help__title-right"
+          variant="text"
+          @click="router.push({ name: 'main' })"
+        > Zum Stadtlexikon </v-btn>
       </template>
 <v-card-text class="textArea">
   <p>Diese Seite bietet umfassende Informationen zu einem spezifischen Thema und richtet sich sowohl an Fachleute als auch an die interessierte Öffentlichkeit. Die Inhalte werden fortlaufend ergänzt und aktualisiert.</p>
@@ -40,15 +52,17 @@
 
 <script setup>
 import { onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
+import ThemeSwitchButton from '../components/ThemeSwitchButton.vue';
 import { useA11y } from '../composables/a11y';
 
 const route = useRoute();
+const router = useRouter();
 const queryParams = route.query;
 const { switchTheme } = useA11y();
 
 onMounted(() => {
-  if (queryParams.a11yTheme === 'true') {
+  if (queryParams.theme === 'a11y' || queryParams.a11yTheme === 'true') {
     switchTheme();
   }
 });
@@ -82,4 +96,5 @@ onMounted(() => {
   .about-help {
     width: 70%;
   }
-}</style>
+}
+</style>

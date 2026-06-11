@@ -1,0 +1,17 @@
+services:
+
+  dts-os-backend:
+    build:
+      context: . # Include the entire project directory
+      dockerfile: ./backend/Dockerfile # Specify the backend Dockerfile
+    container_name: dts-os-backend
+    ports:
+      - 127.0.0.1:8989:8080
+    environment:
+      POSTGRES_HOST: ${DB_HOST:-dts-os-db}
+      POSTGRES_PORT: ${DB_PORT:-5432}
+      POSTGRES_DB: ${DB_NAME:-postgres}
+      POSTGRES_SCHEMA: ${DB_SCHEMA:-public}
+      POSTGRES_URL: jdbc:postgresql://${DB_HOST:-dts-os-db}:${DB_PORT:-5432}/${DB_NAME:-postgres}?currentSchema=${DB_SCHEMA:-public}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}

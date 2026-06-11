@@ -1,8 +1,7 @@
 <template>
   <v-dialog
     min-width="95%"
-    min-height="100%"
-    :fullscreen="true"
+    min-height="95%"
     :model-value="showDialog"
     @update:model-value="handleUpdateShowDialog($event)"
   >
@@ -26,16 +25,16 @@
           :model-value="carouselModel"
           show-arrows="hover"
           @update:model-value="handleUpdateCarouselModel($event)"
+          hide-delimiter-background
         >
           <v-carousel-item
             v-for="(image, i) in lemmaImages"
             :key="i"
-            cover
-            style="text-align: center;"
+            alt="Image"
           >
             <router-link
               target="_blank"
-              :to='`/illustration/${lemma["lemma_id"]}/${lemmaImages[carouselModel].nr}`'
+              :to='`/illustration/${lemma["lemma_id"]}/${lemmaImages[carouselModel].nr}?theme=${theme.global.name.value === "a11yDtsTheme" ? "a11y" : "default"}`'
             >
               <img
                 class="carousel-image"
@@ -51,19 +50,14 @@
           <span> {{ lemmaImages[carouselModel].licence }} </span><br>
         </div>
       </v-card-text>
-      <v-card-actions class="justify-end">
-        <v-btn
-          class="close-button"
-          variant="text"
-          @click="handleUpdateShowDialog(false)"
-          aria-label="Schließen"
-        >Schließen</v-btn>
-      </v-card-actions>
     </v-card>
   </v-dialog>
 </template>
 <script setup>
 import { onMounted } from 'vue';
+import { useTheme } from 'vuetify';
+
+const theme = useTheme();
 
 const emit = defineEmits(['update:showDialog', 'update:carouselModel']);
 
@@ -115,7 +109,7 @@ onMounted(() => {
 </script>
 <style lang="scss">
 .image-info {
-  color: rgb(160 160 160);
+  color: rgb(var(--v-theme-font-lvl3));
   font-style: italic;
   text-align: center;
   font-size: 14px;
@@ -125,7 +119,7 @@ onMounted(() => {
 .toolbar {
   text-align: center;
   font-weight: bold;
-  background-color: rgba($color: var(--v-theme-foxbrush), $alpha: 0.8);
+  background-color: rgba($color: var(--v-theme-primary), $alpha: 0.8);
   color: white;
 }
 
@@ -138,12 +132,16 @@ onMounted(() => {
 }
 
 .v-carousel__progress {
-  color: rgba($color: var(--v-theme-foxbrush), $alpha: 0.8);
+  color: rgba($color: var(--v-theme-primary), $alpha: 0.8);
 }
 
 .carousel-image {
-  width: auto;
   height: 100%;
+  width: auto;
+  max-width: 100%;
+  display: block;
+  margin: auto;
+  object-fit: contain;
 }
 
 .close-button {
@@ -151,7 +149,7 @@ onMounted(() => {
   height: auto;
   padding: 6px;
   font-style: normal;
-  background-color: rgba($color: var(--v-theme-foxbrush), $alpha: 0.8);
+  background-color: rgba($color: var(--v-theme-primary), $alpha: 0.8);
   color: white;
   font-weight: bold;
 }

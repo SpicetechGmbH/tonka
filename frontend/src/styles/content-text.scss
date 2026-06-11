@@ -1,0 +1,40 @@
+@mixin content-text($weight: null, $align: justify) {
+    padding: 10px;
+
+    @if $align != null {
+        text-align: $align;
+    }
+
+    @if $weight != null {
+        font-weight: $weight;
+    }
+}
+
+.content-panel {
+    overflow-y: auto;
+
+    &__abstract {
+        @include content-text($weight: 700);
+    }
+
+    &__description {
+        @include content-text();
+
+        & p {
+            margin-bottom: 1em;
+        }
+    }
+}
+
+.content-meta {
+    @include content-text($align: null);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    font-style: italic;
+    color: rgba(var(--v-theme-font-lvl2));
+
+    &__actions {
+        color: black;
+    }
+}

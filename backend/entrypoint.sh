@@ -1,7 +1,11 @@
 #!/bin/bash
 
 echo "Waiting for PostgreSQL to start..." && \
-until pg_isready -h dts-os-db -U user -d postgres; do sleep 1; done
+until pg_isready -h "${POSTGRES_HOST}" -p "${POSTGRES_PORT}" -d "${POSTGRES_NAME}" -U "${POSTGRES_USER}"
+do
+    echo "PostgreSQL at ${POSTGRES_HOST}:${POSTGRES_PORT} is unavailable - sleeping"
+    sleep 1
+done
 
 mvn clean generate-sources package -DskipTests
 

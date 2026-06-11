@@ -2,15 +2,23 @@
   <v-container class="d-flex justify-center align-center">
     <v-card class="about-help mx-auto">
       <template v-slot:prepend>
-        <span class="about-help__title-left"> Hilfeseite </span>
+        <span class="about-help__title-left"> Stadtlexikon Hilfeseite </span>
       </template>
       <template #append>
-        <a
-          href="[eigene_url_eintragen]"
-          class="about-help__title-right"
+        <ThemeSwitchButton
+          color="#e0e0e0"
+          variant="icon"
         >
-          <span> Zum Lexikon </span>
-        </a>
+          <v-tooltip
+            activator="parent"
+            location="bottom"
+          >Farbschema wechseln</v-tooltip>
+        </ThemeSwitchButton>
+        <v-btn
+          class="about-help__title-right"
+          variant="text"
+          @click="router.push({ name: 'main' })"
+        > Zum Stadtlexikon </v-btn>
       </template>
       <v-card-text>
         <h2>Funktionalitäten</h2>
@@ -21,6 +29,8 @@
           <li><a href="#zeitleiste">Zeitleiste</a></li>
         </ul>
         <h2><a href="#faq">FAQs</a></h2>
+        <h2>Was ist das Digitale Stadtlexikon?</h2>
+        <p>Das Digitale Stadtlexikon Stuttgart enthält Artikel zu Personen, Orten, Ereignissen, Themen und Institutionen der Stuttgarter Vergangenheit. Diese werden geografisch auf aktuellem, historischem und thematischem Kartenmaterial im Stadtraum Stuttgart verortet und mit Fotos, Gemälden, Grafiken und Textmaterial vorwiegend aus den Beständen des Stadtarchivs illustriert. </p>
         <h2>Funktionalitäten</h2>
         <hr>
         <h3 id="artikel">Artikel</h3>
@@ -64,9 +74,9 @@
         <h4>Verlinken auf einen Lexikonartikel</h4>
         <p> Über den Button "URL anzeigen" wird in der Browserzeile eines neuen Reiters die vollständige URL angezeigt, die Sie zum Verlinken markieren und kopieren können. Die URL führt direkt auf den Artikel mit Karten und Bildern. Es handelt sich bei dieser URL nicht um einen Permalink, sie sollte daher nicht zum Zitieren verwendet werden. Der Button "URL anzeigen" ist auf Smartphones nicht sichtbar. </p>
         <h4>Publikationszeitpunkt eines Artikels</h4>
-        <p> Die Zahl der Lexikonartikel wird kontinuierlich ausgebaut. Jeweils am Ende eines Artikels finden Sie die Angabe, wann der betreffende Artikel im Stadtlexikon publiziert wurde. Sollte dieser Artikel inhaltlich seit der Ersterscheinung aktualisiert worden sein, wird zusätzlich auf die "Ältere Version dieses Artikels" hingewiesen, die über das angezeigte Datum angesteuert werden kann. </p>
+        <p> Die Zahl der Lexikonartikel im Stuttgarter Stadtlexikon wird kontinuierlich ausgebaut. Jeweils am Ende eines Artikels finden Sie die Angabe, wann der betreffende Artikel im Stadtlexikon publiziert wurde. Sollte dieser Artikel inhaltlich seit der Ersterscheinung aktualisiert worden sein, wird zusätzlich auf die "Ältere Version dieses Artikels" hingewiesen, die über das angezeigte Datum angesteuert werden kann. </p>
         <h4 id="mavos">mit Artikeln verknüpfte Orte (mAvO)</h4>
-        <p> Bei zahlreichen Artikeln werden nach dem Öffnen auf der Karte die für diesen Artikel relevanten Orte angezeigt. Das können beispielsweise bei Personen Wohn- und Wirkungsstätten sein, aber auch Stationen eines Ereignisses oder ehemalige Standorte von Institutionen. Die Orte dieses Netzwerkes sind durch einen gelben Punkt markiert. Ein Klick auf die gelbe Markierung öffnet die Informationen zu Bezug und Bedeutung des Ortes. Zu diesen Orten sind keine eigenen Lexikonartikel hinterlegt.<br> Bei einer niedrigen Zoomstufe sind die Orte geclustert, erkennbar an der eingeschriebenen Zahl, die anzeigt, wie viele verschiedene Punkte sich hier verbergen. Wenn Sie die Zoomstufe erhöhen, kommen die hinterlegten Punkte zum Vorschein. Durch Anwählen der Punkte öffnen sich die oben genannten Bezugsinformationen.<br>
+        <p> Bei zahlreichen Artikeln werden nach dem Öffnen auf der Karte die für diesen Artikel relevanten Orte im Stuttgarter Stadtgebiet angezeigt. Das können beispielsweise bei Personen Wohn- und Wirkungsstätten sein, aber auch Stationen eines Ereignisses oder ehemalige Standorte von Institutionen. Die Orte dieses Netzwerkes sind durch einen gelben Punkt markiert. Ein Klick auf die gelbe Markierung öffnet die Informationen zu Bezug und Bedeutung des Ortes. Zu diesen Orten sind keine eigenen Lexikonartikel hinterlegt.<br> Bei einer niedrigen Zoomstufe sind die Orte geclustert, erkennbar an der eingeschriebenen Zahl, die anzeigt, wie viele verschiedene Punkte sich hier verbergen. Wenn Sie die Zoomstufe erhöhen, kommen die hinterlegten Punkte zum Vorschein. Durch Anwählen der Punkte öffnen sich die oben genannten Bezugsinformationen.<br>
           <img src="@/assets/icons/screenshot_bio_net.png">
         </p>
         <hr>
@@ -243,7 +253,7 @@
             class="fa fa-arrow-right"
             aria-hidden="true"
           ></i> Warum kann ich die Illustrationen und Quellenbeispiele herunterladen, nicht aber die Karten?</em>
-        <p> Aus technischen Gründen ist das Herunterladen der Karten nicht möglich. </p>
+        <p> Aus technischen Gründen ist das Herunterladen der Karten nicht möglich. Wenn Sie eine Karte als Datei benötigen, wenden Sie sich an das Stadtarchiv Stuttgart bzw. für die Flurkarte an das Staatsarchiv Ludwigsburg. </p>
         <em><i
             class="fa fa-arrow-right"
             aria-hidden="true"
@@ -303,18 +313,18 @@
             class="fa fa-arrow-right"
             aria-hidden="true"
           ></i> Wohin kann ich mich wenden, wenn ich Fragen oder Anregungen habe?</em>
-        <p> Über euer Feedback freuen wir uns sehr. Schreibe uns am besten eine E-Mail an: <a href="mailto:tonka@spicetech.de">tonka@spicetech.de</a>
+        <p> Über Ihr Feedback freuen wir uns sehr. Schreiben Sie uns am besten eine E-Mail an: <a href="mailto:stadtarchiv@stuttgart.de">stadtarchiv@stuttgart.de</a>
         </p>
         <div class="impressum">
           <div style="position: absolute; right: 95px; bottom: 10px; z-index: 1000000;">
             <a
-              href="[Link zur Datenschutzerklärung]"
+              href="https://www.stuttgart.de/datenschutzerklaerung"
               class="dts-impressum"
             >Datenschutzerklärung</a>
           </div>
           <div style="position: absolute; right: 25px; bottom: 10px; z-index: 1000000;">
             <a
-              href="[Link zum Impressum]"
+              href="http://www.stuttgart.de/impressum"
               class="dts-impressum"
             >Impressum</a>
           </div>
@@ -325,20 +335,22 @@
 </template>
 <script setup>
 import { onMounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { useA11y } from '../composables/a11y';
+import ThemeSwitchButton from './ThemeSwitchButton.vue';
 
 const route = useRoute();
+const router = useRouter();
 const queryParams = route.query;
 const { switchTheme } = useA11y();
 
 onMounted(() => {
-  if (queryParams.a11yTheme === 'true') {
+  if (queryParams.theme === 'a11y' || queryParams.a11yTheme === 'true') {
     switchTheme();
   }
 });
 </script>
-<style lang="scss">
+<style lang="scss" scoped>
 .v-card .v-card-text {
   display: flex;
   flex-direction: column;

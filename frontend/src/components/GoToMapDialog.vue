@@ -13,9 +13,7 @@
             title="Hinweis"
           >
             <template #prepend>
-              <v-icon
-                icon="fa fa-map"
-              ></v-icon>
+              <v-icon icon="fa fa-map"></v-icon>
             </template>
           </v-toolbar>
           <v-card-text>
@@ -66,16 +64,14 @@ function handleUpdateShowDialog(event) {
 .toolbar {
   text-align: left;
   font-weight: bold;
-  background-color: rgba(var(--v-theme-foxbrush), 0.8);
+  background-color: rgba(var(--v-theme-primary), 0.8);
   color: white;
 }
 
 .v-toolbar-title {
   font-weight: bold;
   font-size: 16px;
-  margin-inline-start: -6px !important;
   line-height: 1.4rem;
-  padding-top: 6px;
 }
 
 .v-toolbar-title__placeholder {
@@ -88,11 +84,10 @@ function handleUpdateShowDialog(event) {
 
 .v-toolbar__content {
   height: auto !important;
-  align-items: start;
-}
 
-.v-toolbar__prepend {
-  margin-inline-start: 0px;
+  > .v-toolbar-title {
+    margin-inline-start: 0px;
+  }
 }
 
 .close-button {
@@ -100,7 +95,7 @@ function handleUpdateShowDialog(event) {
   height: auto;
   padding: 6px;
   font-style: normal;
-  background-color: rgba(var(--v-theme-foxbrush), 0.8);
+  background-color: rgba(var(--v-theme-primary), 0.8);
   color: white;
   font-weight: bold;
 }

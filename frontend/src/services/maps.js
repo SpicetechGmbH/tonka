@@ -2,34 +2,36 @@ import { dtsAxios } from './axios';
 
 export default {
   /**
-  * get all Historic maps
-  *
-  */
-  getAllHistoricMap() {
-    return new Promise((resolve, reject) => {
-      dtsAxios.get(`/map/HISTORICMAP`)
-        .then((response) => {
-          resolve(response);
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    });
+   * get the base map
+   * @returns {Promise} Axios response promise
+   */
+  getBaseMap() {
+    return dtsAxios.get(`/map/BASEMAP`);
   },
 
   /**
- * get all Thematic maps
- *
- */
-  getAllThematicMap() {
-    return new Promise((resolve, reject) => {
-      dtsAxios.get(`/map/THEMATICMAP`)
-        .then((response) => {
-          resolve(response);
-        })
-        .catch((error) => {
-          reject(error);
-        });
-    });
+  * get all Historic maps
+  * @returns {Promise} Axios response promise
+  */
+  getAllHistoricMap() {
+    return dtsAxios.get(`/map/HISTORICMAP`);
   },
+
+  /**
+   * get all Thematic maps
+   * @returns {Promise} Axios response promise
+   */
+  getAllThematicMap() {
+    return dtsAxios.get(`/map/THEMATICMAP`);
+  },
+
+  /**
+   * get map by street ID
+   * @param {*} streetId 
+   * @returns {Promise} Axios response promise
+   */
+  getMapByStreetId(streetId) {
+    return dtsAxios.get(`/map/mapbystreet/${ streetId }`);
+  }
+
 }

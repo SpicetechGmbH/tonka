@@ -1,9 +1,8 @@
 # Stage 1: Build the frontend
-FROM node:22 AS frontend-build
+FROM node:25 AS frontend-build
 WORKDIR /frontend
-COPY frontend/package.json frontend/package-lock.json ./
-RUN npm install
 COPY frontend ./
+RUN npm install
 RUN npm run build
 
 # Stage 2: Build and run the backend

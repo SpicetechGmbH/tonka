@@ -20,7 +20,7 @@
     "vis-timeline": "^7.7.3",
     "vue": "^3.2.47",
     "vue-router": "^4.1.6",
-    "vuetify": "^3.1.6"
+    "vuetify": "^3.11.0"
   },
   "devDependencies": {
     "@fortawesome/fontawesome-free": "^6.3.0",

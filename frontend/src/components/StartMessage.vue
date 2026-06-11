@@ -4,12 +4,17 @@
         class="notification"
         :class="{ 'expand': expand }"
     >
-        <div class="notification__title">
-            <v-icon
-                class="icon"
-                @click="notificationExpand"
-            > {{ expand ? 'mdi:mdi-menu-left' : 'mdi:mdi-menu-right' }} </v-icon>
-        </div>
+        <v-btn
+            id="start-message-clicker"
+            class="align-start"
+            width="30"
+            height="100%"
+            variant="plain"
+            tile
+            flat
+            :icon="expand ? 'mdi:mdi-menu-right' : 'mdi:mdi-menu-left'"
+            @click="notificationExpand"
+        ></v-btn>
         <div class="notification__content">
             <h3>{{ title }}</h3>
             <p v-html="description"></p>
@@ -39,6 +44,13 @@ onMounted(() => {
 });
 </script>
 <style lang="scss">
+#start-message-clicker {
+    position: absolute;
+    left: 0;
+    top: 0;
+    font-size: 32px;
+}
+
 .notification {
     background: rgb(255 255 255 / 80%);
     padding: 1rem;
@@ -58,15 +70,6 @@ onMounted(() => {
         height: 30%;
         z-index: 10;
         overflow-y: auto;
-    }
-
-    &__title {
-        display: flex;
-        flex-direction: row-reverse;
-        justify-content: space-between;
-        align-items: center;
-        transform: rotate(180deg);
-        cursor: pointer;
     }
 
     &__content {

@@ -1,65 +1,66 @@
 <template>
-	<div v-if="props.toggleFilterButtons">
+	<div v-if="props.showFilterButtons">
 		<v-card>
-			<v-container>
-				<v-row
-					no-gutters
-					style="flex-wrap: wrap;"
-				>
-					<v-col
-						v-for="filter in filterButtons"
-						:key="filter.key"
-					>
-						<v-btn
-							class="ma-2"
-							:aria-label="'Filter ' + filter.label"
-							@click="handleFilterDataView(filter.key)"
-						>{{ props.toggleArtikelPanel ? `${filter.label} (${filteredData[filter.key].length})` : `${filter.label} (${filterDataByQuery[filter.key].length})` }}</v-btn>
-					</v-col>
-				</v-row>
-			</v-container>
+			<v-btn-toggle
+				:model-value="searchStore.activeQueryFilter"
+				@update:model-value="handleFilterDataView($event)"
+				variant="outlined"
+				class="mx-2"
+				divided
+			>
+				<v-btn
+					v-for="filter in filterButtons"
+					:key="filter.key"
+					class="my-2"
+					:value="filter.key"
+					:aria-label="'Filter ' + filter.label"
+				>{{ `${filter.label} (${filterDataByQuery[filter.key].length})` }}</v-btn>
+			</v-btn-toggle>
 		</v-card>
 	</div>
 </template>
 <script setup>
 import { computed } from 'vue';
-import searchQueryStore from '../store/searchQueryStore';
+import { useLemmaStore } from '../store/lemmaStore';
+import { useSearchQueryStore } from '../store/searchQueryStore';
+import Stringer from '../utils/Stringer';
 
-const searchStore = searchQueryStore();
+const lemmaStore = useLemmaStore();
+const searchStore = useSearchQueryStore();
 
-const filteredData = computed(() => searchStore.filteredData);
 const filterDataByQuery = computed(() => searchStore.filteredDataByQuery);
 
-const filterButtons = [
-	{ key: 'person', label: 'Personen' },
-	{ key: 'orte', label: 'Orte' },
-	{ key: 'event', label: 'Ereignisse' },
-	{ key: 'topic', label: 'Themen' },
-	{ key: 'institution', label: 'Institutionen' },
-
-];
+const filterButtons = computed(() => {
+	return (lemmaStore.lemmaTypes || []).map(type => ({
+		key: type.lemma_type.toLowerCase(),
+		label: type.lemma_type_gui_name || Stringer.capitalize(type.lemma_type)
+	}));
+});
 
 const props = defineProps({
-	toggleFilterButtons: {
+	showFilterButtons: {
 		type: Boolean,
 		default: false
-	},
-	toggleArtikelPanel: {
-		type: Boolean,
-		default: false
-	},
+	}
 });
 
 function handleFilterDataView(filterKey) {
-	if (props.toggleArtikelPanel) {
-		searchStore.activeFilter = filterKey;
+	if (filterKey === undefined) {
+		searchStore.activeQueryFilter = '';
 	} else {
 		searchStore.activeQueryFilter = filterKey;
 	}
 };
 </script>
-<style>
-.v-row.v-row--no-gutters {
-	margin: -12px;
+<style lang="scss">
+.v-btn-toggle {
+	.v-btn {
+		// min-width: 120px;
+
+		&.v-btn--active {
+			background-color: rgba(var(--v-theme-primary), 0.8);
+			color: white;
+		}
+	}
 }
 </style>

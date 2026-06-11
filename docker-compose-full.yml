@@ -1,4 +1,3 @@
-version: '3.7'
 services:
 
   dts-os-backend:
@@ -9,9 +8,13 @@ services:
     ports:
       - 127.0.0.1:8989:8080
     environment:
-      POSTGRES_URL: jdbc:postgresql://dts-os-db:5432/postgres
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
+      POSTGRES_HOST: ${DB_HOST:-dts-os-db}
+      POSTGRES_PORT: ${DB_PORT:-5432}
+      POSTGRES_DB: ${DB_NAME:-postgres}
+      POSTGRES_SCHEMA: ${DB_SCHEMA:-public}
+      POSTGRES_URL: jdbc:postgresql://${DB_HOST:-dts-os-db}:${DB_PORT:-5432}/${DB_NAME:-postgres}?currentSchema=${DB_SCHEMA:-public}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     depends_on:
       - dts-os-db
 
@@ -22,8 +25,8 @@ services:
     ports:
       - 127.0.0.1:5431:5432
     environment:
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
-      POSTGRES_DB: postgres
+      POSTGRES_DB: ${DB_NAME:-postgres}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql

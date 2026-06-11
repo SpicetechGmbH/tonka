@@ -15,7 +15,7 @@ const routes = [
 
       if (id) {
         try {
-          await lemmaStore.fetchArticle(id);
+          await lemmaStore.fetchLemma(id);
           viewControllerStore.setCurrentView('article');
         } catch (error) {
           console.error('Error loading lemma', error);
@@ -35,7 +35,7 @@ const routes = [
 
       if (lemmaLink) {
         try {
-          await lemmaStore.fetchArticle(lemmaLink);
+          await lemmaStore.fetchLemma(lemmaLink);
           viewControllerStore.setCurrentView('article');
         } catch (error) {
           console.error('Error loading lemma', error);
@@ -70,7 +70,7 @@ const routes = [
   {
     path: '/hilfe',
     name: 'Hilfe',
-    component: () => import('../components/HilfeComponent.vue')
+    component: () => import('../components/HelpPage.vue')
   },
 ];
 

@@ -6,6 +6,7 @@
     width="auto"
     :prepend-icon="prependIcon"
     :color="color"
+    title="Farbschema umschalten"
     aria-label="Farbschema umschalten"
     @click="switchTheme"
   >
@@ -24,11 +25,11 @@ const props = defineProps({
   },
   prependIcon: {
     type: String,
-    default: 'fa fa-person-walking-with-cane'
+    default: 'fa fa-low-vision'
   },
   color: {
     type: String,
-    default: 'foxbrush'
+    default: 'primary'
   }
 });
 

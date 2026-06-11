@@ -2,7 +2,7 @@ import { dtsAxios } from './axios';
 
 export default {
 
-  getAllQueryResult() {
+  getAllLemmaListResult() {
     return new Promise((resolve, reject) => {
       dtsAxios.get(`/lemma/list`)
         .then((response) => {
@@ -15,10 +15,10 @@ export default {
   },
 
   /**
-   * get query string
+   * Get articles for query.
    *@param {string} queryStringArtikel
    */
-  getQueryArtikelResult(queryStringArtikel) {
+  queryArticles(queryStringArtikel) {
     return new Promise((resolve, reject) => {
       dtsAxios.get(`/query/article/${ queryStringArtikel }`)
         .then((response) => {
@@ -32,10 +32,10 @@ export default {
 
 
   /**
-   * get query string
+   * Get illustrations for query.
    *@param {string} queryStringIllustration
    */
-  getQueryIllustrationResult(queryStringIllustration) {
+  queryIllustrations(queryStringIllustration) {
     return new Promise((resolve, reject) => {
       dtsAxios.get(`/query/illustration/${ queryStringIllustration }`)
         .then((response) => {
@@ -48,12 +48,28 @@ export default {
   },
 
   /**
-   * get query string
+   * Get net places for query.
    *@param {string} queryStringOrte
    */
-  getQueryOrteResult(queryStringOrte) {
+  queryNetPlaces(queryStringOrte) {
     return new Promise((resolve, reject) => {
       dtsAxios.get(`/query/net/${ queryStringOrte }`)
+        .then((response) => {
+          resolve(response);
+        })
+        .catch((error) => {
+          reject(error);
+        });
+    });
+  },
+
+  /**
+   * Get maps for query.
+   *@param {string} queryStringMap
+   */
+  queryMaps(queryStringMap) {
+    return new Promise((resolve, reject) => {
+      dtsAxios.get(`/query/map/${ queryStringMap }`)
         .then((response) => {
           resolve(response);
         })

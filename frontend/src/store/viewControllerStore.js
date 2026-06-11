@@ -2,7 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 
 export const useViewControllerStore = defineStore("viewController", () => {
-  // Views: map, result, article, mapSettings
+  // Views: map, result, article, mapSettings, street
   const currentView = ref("map");
   const lastView = ref('map');
 

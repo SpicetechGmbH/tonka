@@ -4,29 +4,45 @@ import services from '../services';
 export default defineStore('map', {
   state: () => ({
     showPoints: true,
-    historicMapData: [],
-    thematicMapData: [],
+    historicMaps: [],
+    thematicMaps: [],
     mapLayers: [],
     selectedMap: null,
     selectedCompareMap: null,
     rotation: 0,
     transparency: 0,
-    defaultPointColor: getComputedStyle(document.documentElement).getPropertyValue('--dts-color-newwarm').trim(),
-    resultPointColor: getComputedStyle(document.documentElement).getPropertyValue('--dts-color-foxbrush').trim(),
-    netPointColor: getComputedStyle(document.documentElement).getPropertyValue('--dts-color-accent').trim(),
+    // currently shown street marker (null or { streetId, coords: [lon, lat] })
+    shownStreet: null,
   }),
-  getters: {
-
-  },
   actions: {
     toggleShowPoints() {
       this.showPoints = !this.showPoints;
     },
-    fetchHistoricMapData() {
+    // show a street marker on the map (coords in [lon, lat]) and remember the street id
+    async showStreetOnMap(street) {
+      this.shownStreet = street;
+
+      // Check if street is related to historic map and select it
+      if (street && street.historicStreetId) {
+        const historicMapResponse = await services.maps.getMapByStreetId(street.historicStreetId);
+        if (historicMapResponse && historicMapResponse.data?.map) {
+          this.selectedMap = this.historicMaps.find((map) => map.id === historicMapResponse.data.map.map_id);
+        } else {
+          this.selectedMap = null;
+        }
+      } else {
+        this.selectedMap = null;
+      }
+    },
+    // clear any shown street marker
+    clearShownStreet() {
+      this.shownStreet = null;
+    },
+    fetchHistoricMaps() {
       return new Promise((resolve, reject) => {
         services.maps.getAllHistoricMap()
           .then((response) => {
-            this.historicMapData = response.data.maps.map(historicMap => {
+            this.historicMaps = response.data.maps.map(historicMap => {
               return {
                 ...historicMap,
                 title: `${ historicMap['timeline_title'] } ${ historicMap['timeline_date_year'] != null ? historicMap['timeline_date_year'] : '' }`
@@ -37,11 +53,11 @@ export default defineStore('map', {
           .catch((error) => reject(error));
       });
     },
-    fetchThematicMapData() {
+    fetchThematicMaps() {
       return new Promise((resolve, reject) => {
         services.maps.getAllThematicMap()
           .then((response) => {
-            this.thematicMapData = response.data.maps.map(thematicMap => {
+            this.thematicMaps = response.data.maps.map(thematicMap => {
               return {
                 ...thematicMap,
                 title: `${ thematicMap['timeline_title'] } ${ thematicMap['timeline_date_year'] != null ? thematicMap['timeline_date_year'] : '' }`
@@ -51,14 +67,6 @@ export default defineStore('map', {
           })
           .catch((error) => reject(error));
       });
-    },
-    updateColor() {
-      this.defaultPointColor = getComputedStyle(document.documentElement).getPropertyValue('--dts-color-newwarm').trim();
-      console.log("defaultPointColor", this.defaultPointColor);
-      this.resultPointColor = getComputedStyle(document.documentElement).getPropertyValue('--dts-color-foxbrush').trim();
-      console.log("resultPointColor", this.resultPointColor);
-      this.netPointColor = getComputedStyle(document.documentElement).getPropertyValue('--dts-color-accent').trim();
-      console.log("netPointColor", this.netPointColor);
     },
     rotateMap() {
       if (this.selectedMap && this.rotation == 0) {
